@@ -13,12 +13,12 @@ export function CenterTabButton(_props: any) {
   const router       = useRouter();
   const pathname     = usePathname();
   const { language } = useLanguage();
-  const isActive     = pathname === '/record' || pathname === '/ride-summary';
+  const isActive     = pathname === '/recording' || pathname === '/ride-summary';
 
   return (
     <TouchableOpacity
       style={styles.touchable}
-      onPress={() => router.push('/record')}
+      onPress={() => router.push('/recording')}
       activeOpacity={0.78}
       accessibilityLabel="Record ride"
       accessibilityRole="button"

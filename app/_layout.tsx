@@ -94,6 +94,10 @@ export default function RootLayout() {
                       headerStyle: { backgroundColor: Colors.background },
                     }}
                   />
+                  <Stack.Screen name="recording"         options={{ headerShown: true }} />
+                  <Stack.Screen name="ride-summary"     options={{ headerShown: true }} />
+                  <Stack.Screen name="saved-rides"      options={{ headerShown: true }} />
+                  <Stack.Screen name="saved-rides/[id]" options={{ headerShown: true }} />
                   <Stack.Screen
                     name="group-rides/[id]"
                     options={{
