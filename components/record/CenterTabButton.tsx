@@ -1,25 +1,31 @@
 import React from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useRouter } from 'expo-router';
-import Colors from '@/constants/Colors';
+import { StyleSheet, TouchableOpacity, View, Text } from 'react-native';
+import FontAwesome    from '@expo/vector-icons/FontAwesome';
+import { useRouter, usePathname } from 'expo-router';
+import Colors         from '@/constants/Colors';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 /**
- * Raised circular button rendered in the center of the bottom tab bar.
- * Ignores the default tab-press navigation; pushes /record instead.
+ * Subtle raised pill in the center of the tab bar.
+ * Navigates to /record on tap.  Shows a thin green outline when active.
  */
-export function CenterTabButton({ style: _style, ...props }: any) {
-  const router = useRouter();
+export function CenterTabButton(_props: any) {
+  const router       = useRouter();
+  const pathname     = usePathname();
+  const { language } = useLanguage();
+  const isActive     = pathname === '/record' || pathname === '/ride-summary';
 
   return (
     <TouchableOpacity
-      {...props}
       style={styles.touchable}
       onPress={() => router.push('/record')}
-      activeOpacity={0.7}
+      activeOpacity={0.78}
+      accessibilityLabel="Record ride"
+      accessibilityRole="button"
     >
-      <View style={styles.circle}>
-        <FontAwesome name="dot-circle-o" size={28} color="#fff" />
+      <View style={[styles.pill, isActive && styles.pillActive]}>
+        <FontAwesome name="bicycle" size={16} color={Colors.brandGreen} />
+        <Text style={styles.label}>{language === 'sl' ? 'Vožnja' : 'Ride'}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -27,23 +33,36 @@ export function CenterTabButton({ style: _style, ...props }: any) {
 
 const styles = StyleSheet.create({
   touchable: {
-    flex:            1,
-    alignItems:      'center',
-    justifyContent:  'center',
+    flex:           1,
+    alignItems:     'center',
+    justifyContent: 'center',
   },
-  circle: {
-    width:            56,
-    height:           56,
-    borderRadius:     28,
-    backgroundColor:  Colors.cardSurface,
-    borderWidth:      2.5,
-    borderColor:      Colors.brandGreen,
-    alignItems:       'center',
-    justifyContent:   'center',
-    shadowColor:      '#000',
-    shadowOffset:     { width: 0, height: 3 },
-    shadowOpacity:    0.35,
-    shadowRadius:     8,
-    elevation:        7,
+
+  pill: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               8,
+    minWidth:          120,
+    height:            40,
+    paddingHorizontal: 24,
+    borderRadius:      999,
+    backgroundColor:   '#1E2824',       // one step lighter than cardSurface (#141A17)
+    borderWidth:       1,
+    borderColor:       'transparent',   // reserved for active; avoids layout shift
+    shadowColor:       '#000',
+    shadowOffset:      { width: 0, height: 1.5 },
+    shadowOpacity:     0.2,
+    shadowRadius:      3,
+    elevation:         2,
+  },
+
+  pillActive: {
+    borderColor: Colors.brandGreen,
+  },
+
+  label: {
+    color:      Colors.textPrimary,
+    fontSize:   14,
+    fontWeight: '600',
   },
 });
