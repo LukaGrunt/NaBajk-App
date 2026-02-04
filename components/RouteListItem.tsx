@@ -1,14 +1,19 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 import Colors from '@/constants/Colors';
 import { Route } from '@/types/Route';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { t } from '@/constants/i18n';
 
 interface RouteListItemProps {
   route: Route;
-  onPress?: () => void;
 }
 
-export function RouteListItem({ route, onPress }: RouteListItemProps) {
+export function RouteListItem({ route }: RouteListItemProps) {
+  const router = useRouter();
+  const { language } = useLanguage();
+
   const formatDuration = (minutes: number): string => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
@@ -33,9 +38,28 @@ export function RouteListItem({ route, onPress }: RouteListItemProps) {
     }
   };
 
+  const getDifficultyLabel = (difficulty: Route['difficulty']): string => {
+    switch (difficulty) {
+      case 'Lahka':
+        return t(language, 'easy');
+      case 'Srednja':
+        return t(language, 'medium');
+      case 'Težka':
+        return t(language, 'hard');
+      default:
+        return difficulty;
+    }
+  };
+
   return (
-    <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
-      <Image source={{ uri: route.imageUrl }} style={styles.image} />
+    <TouchableOpacity
+      style={styles.container}
+      onPress={() => router.push(`/route/${route.id}`)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.imageContainer}>
+        <Image source={{ uri: route.imageUrl }} style={styles.image} />
+      </View>
       <View style={styles.content}>
         <Text style={styles.title} numberOfLines={1}>
           {route.title}
@@ -56,7 +80,7 @@ export function RouteListItem({ route, onPress }: RouteListItemProps) {
           <Text
             style={[styles.difficultyText, { color: getDifficultyColor(route.difficulty) }]}
           >
-            {route.difficulty}
+            {getDifficultyLabel(route.difficulty)}
           </Text>
         </View>
       </View>
@@ -72,6 +96,11 @@ const styles = StyleSheet.create({
     padding: 12,
     marginHorizontal: 16,
     marginBottom: 10,
+  },
+  imageContainer: {
+    position: 'relative',
+    width: 72,
+    height: 72,
   },
   image: {
     width: 72,

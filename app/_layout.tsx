@@ -7,14 +7,15 @@ import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import Colors from '@/constants/Colors';
+import { LanguageProvider } from '@/contexts/LanguageContext';
+import { FavouritesProvider } from '@/contexts/FavouritesContext';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { UserProfileProvider } from '@/contexts/UserProfileContext';
+import { PushPermissionGate } from '@/components/auth/PushPermissionGate';
 
 export {
   ErrorBoundary,
 } from 'expo-router';
-
-export const unstable_settings = {
-  initialRouteName: '(tabs)',
-};
 
 // Custom dark theme using NaBajk colors
 const NaBajkTheme = {
@@ -51,16 +52,63 @@ export default function RootLayout() {
     return null;
   }
 
-  return <RootLayoutNav />;
-}
-
-function RootLayoutNav() {
   return (
-    <ThemeProvider value={NaBajkTheme}>
-      <StatusBar style="light" />
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-    </ThemeProvider>
+    <AuthProvider>
+      <LanguageProvider>
+        <UserProfileProvider>
+          <FavouritesProvider>
+            <ThemeProvider value={NaBajkTheme}>
+              <PushPermissionGate>
+                <StatusBar style="light" />
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="index" />
+                  <Stack.Screen name="auth-welcome" />
+                  <Stack.Screen name="welcome" />
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen
+                    name="route/[id]"
+                    options={{
+                      headerShown: true,
+                      headerTitle: '',
+                      headerTransparent: true,
+                      headerTintColor: '#FFFFFF',
+                    }}
+                  />
+                  <Stack.Screen
+                    name="routes/category/[category]"
+                    options={{
+                      headerShown: true,
+                      headerTitle: '',
+                      headerTransparent: false,
+                      headerTintColor: Colors.textPrimary,
+                      headerStyle: { backgroundColor: Colors.background },
+                    }}
+                  />
+                  <Stack.Screen
+                    name="group-rides/create"
+                    options={{
+                      headerShown: true,
+                      headerTitle: '',
+                      headerTransparent: false,
+                      headerTintColor: Colors.textPrimary,
+                      headerStyle: { backgroundColor: Colors.background },
+                    }}
+                  />
+                  <Stack.Screen
+                    name="group-rides/[id]"
+                    options={{
+                      headerShown: true,
+                      headerTitle: '',
+                      headerTransparent: true,
+                      headerTintColor: '#FFFFFF',
+                    }}
+                  />
+                </Stack>
+              </PushPermissionGate>
+            </ThemeProvider>
+          </FavouritesProvider>
+        </UserProfileProvider>
+      </LanguageProvider>
+    </AuthProvider>
   );
 }

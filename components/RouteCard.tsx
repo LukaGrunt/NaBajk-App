@@ -1,7 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Image, Dimensions, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 import Colors from '@/constants/Colors';
 import { Route } from '@/types/Route';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { t } from '@/constants/i18n';
 
 interface RouteCardProps {
   route: Route;
@@ -10,6 +13,9 @@ interface RouteCardProps {
 const CARD_WIDTH = Dimensions.get('window').width * 0.75;
 
 export function RouteCard({ route }: RouteCardProps) {
+  const router = useRouter();
+  const { language } = useLanguage();
+
   const formatDuration = (minutes: number): string => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
@@ -34,8 +40,25 @@ export function RouteCard({ route }: RouteCardProps) {
     }
   };
 
+  const getDifficultyLabel = (difficulty: Route['difficulty']): string => {
+    switch (difficulty) {
+      case 'Lahka':
+        return t(language, 'easy');
+      case 'Srednja':
+        return t(language, 'medium');
+      case 'Težka':
+        return t(language, 'hard');
+      default:
+        return difficulty;
+    }
+  };
+
   return (
-    <View style={styles.container}>
+    <TouchableOpacity
+      style={styles.container}
+      onPress={() => router.push(`/route/${route.id}`)}
+      activeOpacity={0.8}
+    >
       <Image source={{ uri: route.imageUrl }} style={styles.image} />
       <View style={styles.overlay} />
       <View style={styles.content}>
@@ -46,7 +69,7 @@ export function RouteCard({ route }: RouteCardProps) {
               { backgroundColor: getDifficultyColor(route.difficulty) },
             ]}
           >
-            <Text style={styles.difficultyText}>{route.difficulty}</Text>
+            <Text style={styles.difficultyText}>{getDifficultyLabel(route.difficulty)}</Text>
           </View>
         </View>
         <View style={styles.footer}>
@@ -62,7 +85,7 @@ export function RouteCard({ route }: RouteCardProps) {
           </View>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
