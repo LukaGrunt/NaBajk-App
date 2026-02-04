@@ -12,14 +12,18 @@ import { getPoints, getState, reset } from '@/lib/rideRecorder';
 import { encodePolyline }            from '@/utils/polyline';
 import { generateAndSaveGPX }        from '@/lib/gpxGenerator';
 import { saveRide }                  from '@/lib/rideStorage';
-import { ShareOverlay, ShareOverlayHandle } from '@/components/record/ShareOverlay';
+import { ShareOverlay }                     from '@/components/record/ShareOverlay';
+import ViewShot                             from 'react-native-view-shot';
+import { StoryOverlay, StoryType }          from '@/components/share/StoryOverlay';
+import { ShareOverlaySheet }                from '@/components/share/ShareOverlaySheet';
+import { exportOverlayToPng }               from '@/lib/share/overlayExport';
 
 // ── screen ────────────────────────────────────────────────
 
 export default function RideSummaryScreen() {
   const { language } = useLanguage();
   const router       = useRouter();
-  const shareRef     = useRef<ShareOverlayHandle>(null);
+  const storyRef     = useRef<any>(null);
 
   // Capture recorded data once on mount — immune to later reset()
   const [points]  = useState(() => [...getPoints()]);
@@ -39,6 +43,39 @@ export default function RideSummaryScreen() {
   }, [points]);
 
   const isShort = distM < 1000 || durSec < 120;
+
+  /* ── elevation / climb ──────────────────────────── */
+  const elevationProfile = useMemo(() => {
+    const alts: number[] = [];
+    for (const p of points) {
+      if (p.alt != null) alts.push(p.alt);
+    }
+    if (alts.length < 2) return [] as number[];
+    if (alts.length <= 100) return alts;
+    const step = alts.length / 100;
+    return Array.from({ length: 100 }, (_, i) => alts[Math.round(i * step)]);
+  }, [points]);
+
+  const hasClimb = useMemo(() => {
+    if (elevationProfile.length < 2) return false;
+    return (Math.max(...elevationProfile) - Math.min(...elevationProfile)) >= 30;
+  }, [elevationProfile]);
+
+  const avgGradient = useMemo(() => {
+    if (elevationProfile.length < 2 || distM === 0) return 0;
+    let ascent = 0;
+    for (let i = 1; i < elevationProfile.length; i++) {
+      const d = elevationProfile[i] - elevationProfile[i - 1];
+      if (d > 0) ascent += d;
+    }
+    return (ascent / distM) * 100;
+  }, [elevationProfile, distM]);
+
+  /* ── story share state ──────────────────────────── */
+  const [storyType,    setStoryType]    = useState<StoryType>('route');
+  const [capturing,    setCapturing]    = useState(false);
+  const [storyPngPath, setStoryPngPath] = useState<string | null>(null);
+  const [showSheet,    setShowSheet]    = useState(false);
 
   const regions = [
     { key: 'gorenjska', label: t(language, 'gorenjska') },
@@ -74,6 +111,15 @@ export default function RideSummaryScreen() {
     }
   }
 
+  /* ── story share ─────────────────────────────── */
+  async function handleShareStory() {
+    setCapturing(true);
+    await new Promise(r => setTimeout(r, 100));
+    const png = await exportOverlayToPng(storyRef);
+    setCapturing(false);
+    if (png) { setStoryPngPath(png); setShowSheet(true); }
+  }
+
   /* ── no data guard ─────────────────────────────── */
   if (points.length < 2) {
     return (
@@ -95,7 +141,6 @@ export default function RideSummaryScreen() {
         {/* route preview / share card */}
         <View style={styles.previewWrap}>
           <ShareOverlay
-            ref={shareRef}
             polyline={polyline}
             distanceMeters={distM}
             durationSeconds={durSec}
@@ -158,11 +203,47 @@ export default function RideSummaryScreen() {
             }
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.shareBtn} onPress={() => shareRef.current?.share()}>
+          {hasClimb && (
+            <View style={styles.typeSelector}>
+              <TouchableOpacity
+                style={[styles.typeTab, storyType === 'route' && styles.typeTabActive]}
+                onPress={() => setStoryType('route')}
+              >
+                <Text style={[styles.typeTabText, storyType === 'route' && styles.typeTabTextActive]}>Route</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.typeTab, storyType === 'climb' && styles.typeTabActive]}
+                onPress={() => setStoryType('climb')}
+              >
+                <Text style={[styles.typeTabText, storyType === 'climb' && styles.typeTabTextActive]}>Climb</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <TouchableOpacity style={styles.shareBtn} onPress={handleShareStory}>
             <Text style={styles.shareBtnText}>{t(language, 'shareRide')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Story capture – briefly mounted for ViewShot; dark bg hides flash */}
+      {capturing && (
+        <View style={{ position: 'absolute', top: 0, left: 0, width: 360, height: 640 }}>
+          <ViewShot ref={storyRef} options={{ format: 'png', quality: 1.0 }}>
+            <StoryOverlay
+              type={storyType}
+              route={storyType === 'route' ? { name: name || 'My Ride', distanceMeters: distM, polyline } : undefined}
+              climb={storyType === 'climb' ? { name: name || 'My Ride', avgGradientPercent: avgGradient, elevationProfile } : undefined}
+            />
+          </ViewShot>
+        </View>
+      )}
+
+      <ShareOverlaySheet
+        visible={showSheet}
+        pngPath={storyPngPath}
+        onClose={() => setShowSheet(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -235,4 +316,11 @@ const styles = StyleSheet.create({
   saveBtnText:      { color: '#fff', fontSize: 16, fontWeight: '600' },
   shareBtn:         { borderWidth: 1, borderColor: Colors.border, borderRadius: 14, padding: 12, alignItems: 'center' },
   shareBtnText:     { color: Colors.textSecondary, fontSize: 15 },
+
+  /* story type selector */
+  typeSelector:       { flexDirection: 'row', backgroundColor: Colors.cardSurface, borderRadius: 10, padding: 3 },
+  typeTab:            { flex: 1, padding: 8, alignItems: 'center', borderRadius: 8 },
+  typeTabActive:      { backgroundColor: Colors.brandGreen },
+  typeTabText:        { color: Colors.textSecondary, fontSize: 14, fontWeight: '500' },
+  typeTabTextActive:  { color: '#fff' },
 });

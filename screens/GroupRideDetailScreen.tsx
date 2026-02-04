@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,10 @@ import Colors from '@/constants/Colors';
 import { formatGroupRideDateTime } from '@/utils/dateFormatting';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { t } from '@/constants/i18n';
+import ViewShot                  from 'react-native-view-shot';
+import { StoryOverlay }          from '@/components/share/StoryOverlay';
+import { ShareOverlaySheet }     from '@/components/share/ShareOverlaySheet';
+import { exportOverlayToPng }    from '@/lib/share/overlayExport';
 
 export default function GroupRideDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -30,6 +34,11 @@ export default function GroupRideDetailScreen() {
   const [groupRide, setGroupRide] = useState<GroupRide | null>(null);
   const [route, setRoute] = useState<Route | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const storyRef     = useRef<any>(null);
+  const [capturing,    setCapturing]    = useState(false);
+  const [storyPngPath, setStoryPngPath] = useState<string | null>(null);
+  const [showSheet,    setShowSheet]    = useState(false);
 
   useEffect(() => {
     loadGroupRide();
@@ -85,9 +94,12 @@ export default function GroupRideDetailScreen() {
     }
   };
 
-  const handleShare = () => {
-    // TODO: Implement share with ShareRideImage component
-    console.log('Share functionality will be implemented');
+  const handleShare = async () => {
+    setCapturing(true);
+    await new Promise(r => setTimeout(r, 100));
+    const png = await exportOverlayToPng(storyRef);
+    setCapturing(false);
+    if (png) { setStoryPngPath(png); setShowSheet(true); }
   };
 
   if (loading) {
@@ -217,6 +229,28 @@ export default function GroupRideDetailScreen() {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Story capture – briefly mounted for ViewShot */}
+      {capturing && groupRide && (
+        <View style={{ position: 'absolute', top: 0, left: 0, width: 360, height: 640 }}>
+          <ViewShot ref={storyRef} options={{ format: 'png', quality: 1.0 }}>
+            <StoryOverlay
+              type="groupRide"
+              groupRide={{
+                title:        groupRide.title,
+                startsAt:     formatGroupRideDateTime(groupRide.startsAt, language),
+                meetingPoint: groupRide.meetingPoint,
+              }}
+            />
+          </ViewShot>
+        </View>
+      )}
+
+      <ShareOverlaySheet
+        visible={showSheet}
+        pngPath={storyPngPath}
+        onClose={() => setShowSheet(false)}
+      />
     </SafeAreaView>
   );
 }

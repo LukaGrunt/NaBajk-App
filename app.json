@@ -18,7 +18,8 @@
       "bundleIdentifier": "com.nabajk.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSLocationWhenInUseUsageDescription": "NaBajk uses your location to record cycling routes."
+        "NSLocationWhenInUseUsageDescription": "NaBajk uses your location to record cycling routes.",
+        "LSApplicationQueriesSchemes": ["instagram-stories", "facebook-stories"]
       }
     },
     "android": {
