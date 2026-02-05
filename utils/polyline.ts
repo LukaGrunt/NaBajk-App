@@ -81,21 +81,25 @@ export function coordinatesToSVGPath(
   height: number,
   padding: number = 10
 ): string {
-  if (coordinates.length === 0) return '';
+  if (coordinates.length < 2) return '';
 
   const bounds = getPolylineBounds(coordinates);
   const latRange = bounds.maxLat - bounds.minLat;
   const lngRange = bounds.maxLng - bounds.minLng;
 
   // Scale to fit SVG dimensions with padding
-  const availableWidth = width - 2 * padding;
+  const availableWidth  = width  - 2 * padding;
   const availableHeight = height - 2 * padding;
 
   const pathData = coordinates
     .map((coord, index) => {
-      // Transform lat/lng to SVG x/y (note: SVG y is inverted)
-      const x = ((coord.lng - bounds.minLng) / lngRange) * availableWidth + padding;
-      const y = ((bounds.maxLat - coord.lat) / latRange) * availableHeight + padding;
+      // When range is 0 (straight line or single point) centre on that axis
+      const x = lngRange === 0
+        ? availableWidth  / 2 + padding
+        : ((coord.lng - bounds.minLng) / lngRange) * availableWidth  + padding;
+      const y = latRange === 0
+        ? availableHeight / 2 + padding
+        : ((bounds.maxLat - coord.lat) / latRange) * availableHeight + padding;
       return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
     })
     .join(' ');
