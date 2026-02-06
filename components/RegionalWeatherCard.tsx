@@ -1,6 +1,6 @@
 /**
  * RegionalWeatherCard Component
- * A minimal weather module for the Routes screen
+ * A minimal weather status bar for the Routes screen
  */
 
 import React, { useEffect, useRef } from 'react';
@@ -10,13 +10,13 @@ import {
   StyleSheet,
   Animated,
 } from 'react-native';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Colors from '@/constants/Colors';
-import { ForecastBlock, WeatherCondition } from './ForecastBlock';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { t } from '@/constants/i18n';
 
-// Types
-export type ForecastPoint = {
+// Weather condition types
+type WeatherCondition = 'sunny' | 'cloudy' | 'partly-cloudy' | 'rainy' | 'stormy';
+
+type ForecastPoint = {
   time: string;
   tempC: number;
   precipMm: number;
@@ -25,94 +25,133 @@ export type ForecastPoint = {
   condition: WeatherCondition;
 };
 
-// Mock data - hardcoded as specified
+// Map condition to FontAwesome icon
+function getWeatherIcon(condition: WeatherCondition): { name: string; color: string } {
+  switch (condition) {
+    case 'sunny':
+      return { name: 'sun-o', color: '#FFD93D' };
+    case 'cloudy':
+      return { name: 'cloud', color: Colors.textSecondary };
+    case 'partly-cloudy':
+      return { name: 'cloud', color: Colors.textMuted };
+    case 'rainy':
+      return { name: 'tint', color: '#6CB4EE' };
+    case 'stormy':
+      return { name: 'bolt', color: '#FFD93D' };
+    default:
+      return { name: 'cloud', color: Colors.textMuted };
+  }
+}
+
+// Mock data
 const MOCK_FORECAST: ForecastPoint[] = [
   { time: '12:00', tempC: 7, precipMm: 0.0, windKmh: 18, windArrow: '↗', condition: 'sunny' },
   { time: '15:00', tempC: 9, precipMm: 0.4, windKmh: 22, windArrow: '↗', condition: 'partly-cloudy' },
   { time: '18:00', tempC: 6, precipMm: 1.2, windKmh: 16, windArrow: '→', condition: 'rainy' },
-  { time: '21:00', tempC: 4, precipMm: 0.0, windKmh: 10, windArrow: '↓', condition: 'cloudy' },
 ];
 
-
-interface RegionalWeatherCardProps {
-  region?: string;
-}
-
-export function RegionalWeatherCard({ region = 'Gorenjska' }: RegionalWeatherCardProps) {
-  const { language } = useLanguage();
+export function RegionalWeatherCard() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Fade-in animation on mount
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 200,
+      duration: 300,
       useNativeDriver: true,
     }).start();
   }, []);
 
   return (
-    <Animated.View style={{ opacity: fadeAnim }}>
-      <View style={styles.card}>
-        <View style={styles.content}>
-          {/* Header Row */}
-          <View style={styles.header}>
-            <Text style={styles.title}>{t(language, 'weather')}: {region}</Text>
-            <Text style={styles.sourceMeta}>Vir: ARSO</Text>
-          </View>
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      <View style={styles.strip}>
+        {MOCK_FORECAST.map((forecast, index) => {
+          const icon = getWeatherIcon(forecast.condition);
+          const isActive = index === 0;
 
-          {/* Hourly Forecast Row - Centered */}
-          <View style={styles.forecastRow}>
-            {MOCK_FORECAST.map((forecast, index) => (
-              <ForecastBlock
-                key={forecast.time}
-                time={forecast.time}
-                tempC={forecast.tempC}
-                precipMm={forecast.precipMm}
-                windKmh={forecast.windKmh}
-                windArrow={forecast.windArrow}
-                condition={forecast.condition}
-                isActive={index === 0}
-              />
-            ))}
-          </View>
-        </View>
+          return (
+            <React.Fragment key={forecast.time}>
+              <View style={[styles.column, isActive && styles.columnActive]}>
+                {/* Time */}
+                <Text style={styles.time}>{forecast.time}</Text>
+
+                {/* Icon + Temp row */}
+                <View style={styles.iconTempRow}>
+                  <FontAwesome
+                    name={icon.name as any}
+                    size={16}
+                    color={icon.color}
+                    style={styles.icon}
+                  />
+                  <Text style={styles.temp}>{forecast.tempC}°</Text>
+                </View>
+
+                {/* Precip + Wind combined */}
+                <Text style={styles.details}>
+                  {forecast.precipMm} mm · {forecast.windArrow} {forecast.windKmh}
+                </Text>
+              </View>
+
+              {/* Divider (not after last item) */}
+              {index < MOCK_FORECAST.length - 1 && <View style={styles.divider} />}
+            </React.Fragment>
+          );
+        })}
       </View>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  container: {
     marginHorizontal: 16,
-    marginTop: 24,
+    marginTop: 16,
+    marginBottom: 12,
   },
-  content: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-
-  // Header
-  header: {
+  strip: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
   },
-  title: {
-    fontSize: 16,
+  column: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+  },
+  columnActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  divider: {
+    width: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginHorizontal: 4,
+  },
+  time: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: Colors.textMuted,
+    marginBottom: 6,
+  },
+  iconTempRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  icon: {
+    marginRight: 4,
+  },
+  temp: {
+    fontSize: 18,
     fontWeight: '600',
     color: Colors.textPrimary,
   },
-  sourceMeta: {
-    fontSize: 11,
+  details: {
+    fontSize: 10,
     color: Colors.textMuted,
-  },
-
-  // Forecast Row - Centered
-  forecastRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
   },
 });

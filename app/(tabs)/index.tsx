@@ -19,19 +19,34 @@ import { Chip } from '@/components/Chip';
 import { RouteCard } from '@/components/RouteCard';
 import { RouteListItem } from '@/components/RouteListItem';
 import { RegionalWeatherCard } from '@/components/RegionalWeatherCard';
-import { CategoryTile } from '@/components/CategoryTile';
-import { TimeTile } from '@/components/TimeTile';
+import { QuickPickCard } from '@/components/QuickPickCard';
+import { PartnerCard, Partner } from '@/components/PartnerCard';
 import { HeaderPanel } from '@/components/home/HeaderPanel';
 import { listRoutes, getFeaturedRoutes } from '@/repositories/routesRepo';
-import { Route, RouteCategory, TimeDuration } from '@/types/Route';
+import { Route, TimeDuration } from '@/types/Route';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { t } from '@/constants/i18n';
 import { normalizeForSearch } from '@/utils/textNormalization';
 import { useAnnouncement } from '@/hooks/useAnnouncement';
 import { AnnouncementModal } from '@/components/AnnouncementModal';
 
-const CATEGORIES: RouteCategory[] = ['vzponi', 'coffee', 'family', 'trainingLong'];
 const TIME_DURATIONS: TimeDuration[] = ['1h', '2h', '3h', '4h+'];
+
+// TODO: replace with backend-fetched partners when ready
+const PARTNERS: Partner[] = [
+  {
+    id: 'trek-lj',
+    name: 'Trek Ljubljana',
+    valueProp: { sl: 'Servis & oprema', en: 'Service & gear' },
+    url: 'https://example.com/trek-lj',
+  },
+  {
+    id: 'decathlon-slo',
+    name: 'Decathlon SLO',
+    valueProp: { sl: 'Sport za vsakogar', en: 'Sport for everyone' },
+    url: 'https://example.com/decathlon-slo',
+  },
+];
 
 export default function PotiScreen() {
   const router = useRouter();
@@ -80,10 +95,6 @@ export default function PotiScreen() {
     );
   }, [searchQuery, allRoutes]);
 
-  const handleCategoryPress = (category: RouteCategory) => {
-    router.push(`/routes/category/${category}`);
-  };
-
   const handleTimePress = (duration: TimeDuration) => {
     router.push(`/time/${duration}`);
   };
@@ -116,36 +127,29 @@ export default function PotiScreen() {
         {/* Show regional content only when not searching */}
         {!searchQuery.trim() && (
           <>
-            {/* Regional Weather - only for Gorenjska */}
-            <RegionalWeatherCard region={t(language, 'gorenjska')} />
+            {/* Regional Weather - compact */}
+            <RegionalWeatherCard />
 
-            {/* Category Browsing Section */}
-            <SectionHeader title={t(language, 'categoryBrowsing')} />
-            <FlatList
-              horizontal
-              data={CATEGORIES}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <CategoryTile category={item} onPress={handleCategoryPress} />
-              )}
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoriesContent}
-              scrollEnabled={true}
-            />
-
-            {/* Time Browsing Section */}
-            <SectionHeader title={t(language, 'timeBrowsing')} />
+            {/* Quick picks – time-based route filters */}
+            <SectionHeader title={t(language, 'quickPicks')} />
             <FlatList
               horizontal
               data={TIME_DURATIONS}
               keyExtractor={(item) => item}
               renderItem={({ item }) => (
-                <TimeTile duration={item} onPress={handleTimePress} />
+                <QuickPickCard duration={item} onPress={handleTimePress} />
               )}
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoriesContent}
-              scrollEnabled={true}
+              contentContainerStyle={styles.rowContent}
             />
+
+            {/* Partners */}
+            <SectionHeader title={t(language, 'partners')} />
+            <View style={styles.partnersRow}>
+              {PARTNERS.map((partner) => (
+                <PartnerCard key={partner.id} partner={partner} />
+              ))}
+            </View>
           </>
         )}
 
@@ -199,11 +203,14 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 20,
   },
-  carouselContent: {
+  rowContent: {
     paddingHorizontal: 16,
+    paddingBottom: 8,
   },
-  categoriesContent: {
+  partnersRow: {
+    flexDirection: 'row',
     paddingHorizontal: 16,
+    gap: 10,
     paddingBottom: 8,
   },
   listContainer: {

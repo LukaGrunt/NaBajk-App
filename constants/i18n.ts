@@ -68,6 +68,11 @@ export const strings = {
     timeDesc3h: 'Poti 2-3 ure',
     timeDesc4hPlus: 'Dolge poti nad 3 ure',
 
+    // Quick picks & Partners
+    quickPicks: 'Hitri izbiri',
+    partners: 'Partnerji',
+    partnerTag: 'Partner',
+
     // Regions
     gorenjska: 'Gorenjska',
     dolenjska: 'Dolenjska (kmalu)',
@@ -270,6 +275,11 @@ export const strings = {
     timeDesc2h: 'Routes 1-2 hours',
     timeDesc3h: 'Routes 2-3 hours',
     timeDesc4hPlus: 'Long routes over 3 hours',
+
+    // Quick picks & Partners
+    quickPicks: 'Quick picks',
+    partners: 'Partners',
+    partnerTag: 'Partner',
 
     // Regions
     gorenjska: 'Gorenjska',
