@@ -16,10 +16,15 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.nabajk.app",
+      "buildNumber": "5",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "NaBajk uses your location to record cycling routes.",
-        "LSApplicationQueriesSchemes": ["instagram-stories", "facebook-stories"]
+        "NSPhotoLibraryUsageDescription": "NaBajk uses your photo library to save and share ride images.",
+        "LSApplicationQueriesSchemes": [
+          "instagram-stories",
+          "facebook-stories"
+        ]
       }
     },
     "android": {
@@ -38,7 +43,9 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-web-browser",
+      "@maplibre/maplibre-react-native"
     ],
     "experiments": {
       "typedRoutes": true

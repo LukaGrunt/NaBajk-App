@@ -153,6 +153,22 @@ export function getMapRegion(coordinates: Array<{ lat: number; lng: number }>): 
   };
 }
 
+/**
+ * Convert decoded polyline to GeoJSON LineString for MapLibre
+ */
+export function toGeoJSONLineString(
+  coordinates: Array<{ lat: number; lng: number }>
+): GeoJSON.Feature<GeoJSON.LineString> {
+  return {
+    type: 'Feature',
+    properties: {},
+    geometry: {
+      type: 'LineString',
+      coordinates: coordinates.map(c => [c.lng, c.lat]), // GeoJSON is [lng, lat]
+    },
+  };
+}
+
 // ── encode ──────────────────────────────────────────────
 
 /** Encode a single signed value into polyline characters */

@@ -17,7 +17,7 @@ import { getRoute } from '@/repositories/routesRepo';
 import { Route } from '@/types/Route';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFavourites } from '@/contexts/FavouritesContext';
-import { RouteMap } from '@/components/RouteMap';
+import { InteractiveRouteMap } from '@/components/InteractiveRouteMap';
 import { t } from '@/constants/i18n';
 
 const { width } = Dimensions.get('window');
@@ -165,7 +165,7 @@ export default function RouteDetailScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t(language, 'routeOverview')}</Text>
             {route.polyline ? (
-              <RouteMap polyline={route.polyline} height={250} />
+              <InteractiveRouteMap polyline={route.polyline} height={250} />
             ) : (
               <View style={styles.mapPlaceholder}>
                 <FontAwesome name="map" size={48} color={Colors.textMuted} />
