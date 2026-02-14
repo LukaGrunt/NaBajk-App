@@ -24,12 +24,18 @@ const strings = {
     placeholder: 'vnesi e-pošto',
     cta: 'Nadaljuj',
     error: 'Vnesi veljaven e-poštni naslov',
+    successTitle: 'Preveri e-pošto',
+    successMessage: 'Poslali smo ti povezavo za prijavo na',
+    done: 'V redu',
   },
   ENG: {
     title: 'Email sign in',
     placeholder: 'Enter your email',
     cta: 'Continue',
     error: 'Enter a valid email address',
+    successTitle: 'Check your email',
+    successMessage: 'We sent a login link to',
+    done: 'Got it',
   },
 };
 
@@ -37,6 +43,8 @@ export function EmailSignInModal({ visible, language, onClose, onSubmit }: Email
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [sentToEmail, setSentToEmail] = useState('');
 
   const t = strings[language];
 
@@ -56,8 +64,9 @@ export function EmailSignInModal({ visible, language, onClose, onSubmit }: Email
     setLoading(true);
     try {
       await onSubmit(email.trim());
+      setSentToEmail(email.trim());
+      setEmailSent(true);
       setEmail('');
-      onClose();
     } catch (err) {
       setError(t.error);
     } finally {
@@ -68,6 +77,8 @@ export function EmailSignInModal({ visible, language, onClose, onSubmit }: Email
   const handleClose = () => {
     setEmail('');
     setError('');
+    setEmailSent(false);
+    setSentToEmail('');
     onClose();
   };
 
@@ -80,33 +91,53 @@ export function EmailSignInModal({ visible, language, onClose, onSubmit }: Email
         >
           <TouchableOpacity activeOpacity={1} style={styles.modal}>
             <View style={styles.content}>
-              <Text style={styles.title}>{t.title}</Text>
+              {emailSent ? (
+                <>
+                  <Text style={styles.successIcon}>✉️</Text>
+                  <Text style={styles.title}>{t.successTitle}</Text>
+                  <Text style={styles.successMessage}>
+                    {t.successMessage}
+                  </Text>
+                  <Text style={styles.sentEmail}>{sentToEmail}</Text>
+                  <TouchableOpacity
+                    style={styles.button}
+                    onPress={handleClose}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.buttonText}>{t.done}</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.title}>{t.title}</Text>
 
-              <TextInput
-                style={[styles.input, error ? styles.inputError : null]}
-                placeholder={t.placeholder}
-                placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                value={email}
-                onChangeText={(text) => {
-                  setEmail(text);
-                  setError('');
-                }}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoFocus
-              />
+                  <TextInput
+                    style={[styles.input, error ? styles.inputError : null]}
+                    placeholder={t.placeholder}
+                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                    value={email}
+                    onChangeText={(text) => {
+                      setEmail(text);
+                      setError('');
+                    }}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoFocus
+                  />
 
-              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+                  {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-              <TouchableOpacity
-                style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={handleSubmit}
-                disabled={loading}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.buttonText}>{t.cta}</Text>
-              </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.button, loading && styles.buttonDisabled]}
+                    onPress={handleSubmit}
+                    disabled={loading}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.buttonText}>{t.cta}</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           </TouchableOpacity>
         </KeyboardAvoidingView>
@@ -144,6 +175,24 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: 20,
     textAlign: 'center',
+  },
+  successIcon: {
+    fontSize: 48,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  successMessage: {
+    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  sentEmail: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#00BC7C',
+    textAlign: 'center',
+    marginBottom: 24,
   },
   input: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
