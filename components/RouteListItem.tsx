@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import Colors from '@/constants/Colors';
 import { Route } from '@/types/Route';
@@ -28,13 +29,26 @@ export function RouteListItem({ route }: RouteListItemProps) {
   const getDifficultyColor = (difficulty: Route['difficulty']): string => {
     switch (difficulty) {
       case 'Lahka':
-        return '#4CAF50';
+        return Colors.greenLight;
       case 'Srednja':
-        return '#FFC107';
+        return Colors.accentOrange;
       case 'Težka':
-        return '#F44336';
+        return Colors.difficultyHard;
       default:
         return Colors.textSecondary;
+    }
+  };
+
+  const getDifficultyBgColor = (difficulty: Route['difficulty']): string => {
+    switch (difficulty) {
+      case 'Lahka':
+        return 'rgba(51,204,145,0.12)';
+      case 'Srednja':
+        return 'rgba(255,107,53,0.12)';
+      case 'Težka':
+        return 'rgba(239,68,68,0.12)';
+      default:
+        return Colors.surface2;
     }
   };
 
@@ -58,7 +72,7 @@ export function RouteListItem({ route }: RouteListItemProps) {
       activeOpacity={0.7}
     >
       <View style={styles.imageContainer}>
-        <Image source={{ uri: route.imageUrl }} style={styles.image} />
+        <Image source={route.imageUrl} style={styles.image} cachePolicy="memory-disk" transition={200} />
       </View>
       <View style={styles.content}>
         <Text style={styles.title} numberOfLines={1}>
@@ -74,7 +88,7 @@ export function RouteListItem({ route }: RouteListItemProps) {
         <View
           style={[
             styles.difficultyBadge,
-            { backgroundColor: getDifficultyColor(route.difficulty) + '20' },
+            { backgroundColor: getDifficultyBgColor(route.difficulty) },
           ]}
         >
           <Text
@@ -91,56 +105,60 @@ export function RouteListItem({ route }: RouteListItemProps) {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: Colors.cardSurface,
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: Colors.surface1,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 14,
+    padding: 16,
     marginHorizontal: 16,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   imageContainer: {
     position: 'relative',
-    width: 72,
-    height: 72,
+    width: 100,
+    height: 67, // 3:2 aspect ratio
   },
   image: {
-    width: 72,
-    height: 72,
-    borderRadius: 8,
-    backgroundColor: Colors.elevatedSurface,
+    width: 100,
+    height: 67,
+    borderRadius: 10,
+    backgroundColor: Colors.surface2,
   },
   content: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 16,
     justifyContent: 'center',
   },
   title: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '600',
     color: Colors.textPrimary,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   stat: {
-    fontSize: 13,
+    fontSize: 16,
+    fontWeight: '400',
     color: Colors.textSecondary,
   },
   statDivider: {
-    fontSize: 13,
-    color: Colors.textMuted,
-    marginHorizontal: 6,
+    fontSize: 16,
+    color: Colors.textSecondary,
+    marginHorizontal: 8,
+    opacity: 0.5,
   },
   difficultyBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   difficultyText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '500',
   },
 });

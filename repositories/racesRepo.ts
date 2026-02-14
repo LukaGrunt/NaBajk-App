@@ -8,6 +8,15 @@ export interface Race {
   link?: string;
 }
 
+// Supabase row type (snake_case from database)
+interface SupabaseRaceRow {
+  id: string;
+  name: string;
+  race_date: string;
+  region: string | null;
+  link: string | null;
+}
+
 /**
  * Fetch upcoming races (race_date >= today), ordered by date ascending.
  * Throws on network/query error — caller is responsible for handling.
@@ -23,7 +32,7 @@ export async function listRaces(): Promise<Race[]> {
 
   if (error) throw error;
 
-  return (data || []).map((row: any) => ({
+  return (data || []).map((row: SupabaseRaceRow) => ({
     id:        row.id,
     name:      row.name,
     raceDate:  row.race_date,

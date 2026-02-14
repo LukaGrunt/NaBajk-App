@@ -86,14 +86,16 @@ export default function AuthWelcomeScreen() {
       <VideoBackground />
 
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-        {/* Temporary Skip Button - Top Right */}
-        <TouchableOpacity
-          style={styles.skipButton}
-          onPress={handleGoogleSignIn}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.skipText}>Skip (Dev)</Text>
-        </TouchableOpacity>
+        {/* Dev-only Skip Button - Hidden in production builds */}
+        {__DEV__ && (
+          <TouchableOpacity
+            style={styles.skipButton}
+            onPress={handleGoogleSignIn}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.skipText}>Skip (Dev)</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Center Section - Logo */}
         <View style={styles.centerSection}>

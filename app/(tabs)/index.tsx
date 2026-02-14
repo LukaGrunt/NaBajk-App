@@ -1,14 +1,13 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  TextInput,
   FlatList,
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  ListRenderItem,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -20,7 +19,7 @@ import { RouteCard } from '@/components/RouteCard';
 import { RouteListItem } from '@/components/RouteListItem';
 import { RegionalWeatherCard } from '@/components/RegionalWeatherCard';
 import { QuickPickCard } from '@/components/QuickPickCard';
-import { PartnerCard, Partner } from '@/components/PartnerCard';
+import { PartnerStrip, Partner } from '@/components/PartnerStrip';
 import { HeaderPanel } from '@/components/home/HeaderPanel';
 import { listRoutes, getFeaturedRoutes } from '@/repositories/routesRepo';
 import { Route, TimeDuration } from '@/types/Route';
@@ -39,12 +38,14 @@ const PARTNERS: Partner[] = [
     name: 'Trek Ljubljana',
     valueProp: { sl: 'Servis & oprema', en: 'Service & gear' },
     url: 'https://example.com/trek-lj',
+    icon: 'bicycle',
   },
   {
     id: 'decathlon-slo',
     name: 'Decathlon SLO',
     valueProp: { sl: 'Sport za vsakogar', en: 'Sport for everyone' },
     url: 'https://example.com/decathlon-slo',
+    icon: 'shopping-bag',
   },
 ];
 
@@ -99,6 +100,77 @@ export default function PotiScreen() {
     router.push(`/time/${duration}`);
   };
 
+  // Memoized render item for FlatList
+  const renderRouteItem: ListRenderItem<Route> = useCallback(
+    ({ item }) => <RouteListItem key={item.id} route={item} />,
+    []
+  );
+
+  const keyExtractor = useCallback((item: Route) => item.id, []);
+
+  // List header with search, weather, quick picks
+  const ListHeader = useMemo(() => (
+    <>
+      {/* Header Panel with Search + Chips */}
+      <HeaderPanel
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        regions={regions}
+      />
+
+      {/* Show regional content only when not searching */}
+      {!searchQuery.trim() && (
+        <>
+          {/* Regional Weather - compact */}
+          <RegionalWeatherCard />
+
+          {/* Quick picks – time-based route filters */}
+          <SectionHeader title={t(language, 'quickPicks')} />
+          <FlatList
+            horizontal
+            data={TIME_DURATIONS}
+            keyExtractor={(item) => item}
+            renderItem={({ item }) => (
+              <QuickPickCard duration={item} onPress={handleTimePress} />
+            )}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.rowContent}
+            scrollEnabled={false}
+          />
+        </>
+      )}
+
+      {/* All Routes Section Header */}
+      <SectionHeader
+        title={
+          searchQuery.trim()
+            ? `${filteredRoutes.length} ${
+                filteredRoutes.length === 1
+                  ? t(language, 'searchResult')
+                  : t(language, 'searchResults')
+              }`
+            : `${t(language, 'allRoutes')} · ${t(language, 'gorenjska')}`
+        }
+      />
+    </>
+  ), [searchQuery, language, filteredRoutes.length, regions]);
+
+  // List footer with partners
+  const ListFooter = useMemo(() => (
+    <>
+      {!searchQuery.trim() && <PartnerStrip partners={PARTNERS} />}
+      <View style={styles.bottomSpacer} />
+    </>
+  ), [searchQuery]);
+
+  // Empty state component
+  const ListEmpty = useCallback(() => (
+    <View style={styles.emptyState}>
+      <FontAwesome name="search" size={48} color={Colors.textMuted} />
+      <Text style={styles.emptyStateText}>{t(language, 'noRoutesFound')}</Text>
+    </View>
+  ), [language]);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -112,75 +184,19 @@ export default function PotiScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView
-        style={styles.scrollView}
+      <FlatList
+        data={filteredRoutes}
+        renderItem={renderRouteItem}
+        keyExtractor={keyExtractor}
+        ListHeaderComponent={ListHeader}
+        ListFooterComponent={ListFooter}
+        ListEmptyComponent={ListEmpty}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-      >
-        {/* Header Panel with Search + Chips */}
-        <HeaderPanel
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          regions={regions}
-        />
-
-        {/* Show regional content only when not searching */}
-        {!searchQuery.trim() && (
-          <>
-            {/* Regional Weather - compact */}
-            <RegionalWeatherCard />
-
-            {/* Quick picks – time-based route filters */}
-            <SectionHeader title={t(language, 'quickPicks')} />
-            <FlatList
-              horizontal
-              data={TIME_DURATIONS}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <QuickPickCard duration={item} onPress={handleTimePress} />
-              )}
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.rowContent}
-            />
-
-            {/* Partners */}
-            <SectionHeader title={t(language, 'partners')} />
-            <View style={styles.partnersRow}>
-              {PARTNERS.map((partner) => (
-                <PartnerCard key={partner.id} partner={partner} />
-              ))}
-            </View>
-          </>
-        )}
-
-        {/* All Routes Section or Search Results */}
-        <SectionHeader
-          title={
-            searchQuery.trim()
-              ? `${filteredRoutes.length} ${
-                  filteredRoutes.length === 1
-                    ? t(language, 'searchResult')
-                    : t(language, 'searchResults')
-                }`
-              : `${t(language, 'allRoutes')} · ${t(language, 'gorenjska')}`
-          }
-        />
-        <View style={styles.listContainer}>
-          {filteredRoutes.length > 0 ? (
-            filteredRoutes.map((route) => (
-              <RouteListItem key={route.id} route={route} />
-            ))
-          ) : (
-            <View style={styles.emptyState}>
-              <FontAwesome name="search" size={48} color={Colors.textMuted} />
-              <Text style={styles.emptyStateText}>{t(language, 'noRoutesFound')}</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Bottom spacing */}
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+      />
 
       <AnnouncementModal
         visible={announcementVisible}
@@ -197,24 +213,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  scrollView: {
-    flex: 1,
-  },
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
   rowContent: {
     paddingHorizontal: 16,
-    paddingBottom: 8,
-  },
-  partnersRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 10,
-    paddingBottom: 8,
-  },
-  listContainer: {
-    marginTop: 4,
+    paddingBottom: 12,
   },
   emptyState: {
     alignItems: 'center',
@@ -224,7 +228,7 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 16,
-    color: Colors.textMuted,
+    color: Colors.textSecondary,
     marginTop: 16,
     textAlign: 'center',
   },

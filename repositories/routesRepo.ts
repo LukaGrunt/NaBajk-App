@@ -6,19 +6,33 @@ import { Route, RouteCategory, TimeDuration } from '@/types/Route';
  * Fetches cycling routes from Supabase database
  */
 
+// Supabase row type (snake_case from database)
+interface SupabaseRouteRow {
+  id: string;
+  title: string;
+  distance_km: number | string;
+  elevation_m: number;
+  duration_minutes: number;
+  difficulty: Route['difficulty'];
+  image_url: string;
+  featured: boolean;
+  categories: RouteCategory[] | null;
+  polyline: string | null;
+}
+
 // Helper: Map Supabase snake_case to TypeScript camelCase
-function mapSupabaseToRoute(data: any): Route {
+function mapSupabaseToRoute(data: SupabaseRouteRow): Route {
   return {
     id: data.id,
     title: data.title,
-    distanceKm: parseFloat(data.distance_km),
+    distanceKm: parseFloat(String(data.distance_km)),
     elevationM: data.elevation_m,
     durationMinutes: data.duration_minutes,
     difficulty: data.difficulty,
     imageUrl: data.image_url,
     featured: data.featured,
     categories: data.categories || [],
-    polyline: data.polyline,
+    polyline: data.polyline ?? undefined,
   };
 }
 

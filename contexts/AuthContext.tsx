@@ -1,13 +1,20 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-auth-session';
+import { supabase } from '@/lib/supabase';
+import { Session, User as SupabaseUser } from '@supabase/supabase-js';
+
+// Required for expo-auth-session to work properly
+WebBrowser.maybeCompleteAuthSession();
 
 const KEYS = {
-  USER_EMAIL: 'nb_auth_user_email',
   PUSH_PERMISSION_ASKED: 'nb_push_permission_asked',
   PUSH_PERMISSION_STATUS: 'nb_push_permission_status',
 };
 
 interface User {
+  id: string;
   email: string;
 }
 
@@ -24,91 +31,170 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function mapSupabaseUser(supabaseUser: SupabaseUser | null): User | null {
+  if (!supabaseUser) return null;
+  return {
+    id: supabaseUser.id,
+    email: supabaseUser.email || '',
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [pushPermissionAsked, setPushPermissionAsked] = useState(false);
   const [pushPermissionStatus, setPushPermissionStatus] = useState<string | null>(null);
 
-  // Load stored auth state on mount
+  // Load stored state and listen to auth changes
   useEffect(() => {
-    async function loadAuthState() {
+    async function initialize() {
       try {
-        const [email, permAsked, permStatus] = await Promise.all([
-          AsyncStorage.getItem(KEYS.USER_EMAIL),
+        // Load push permission state
+        const [permAsked, permStatus] = await Promise.all([
           AsyncStorage.getItem(KEYS.PUSH_PERMISSION_ASKED),
           AsyncStorage.getItem(KEYS.PUSH_PERMISSION_STATUS),
         ]);
-
-        if (email) {
-          setUser({ email });
-        }
-
         setPushPermissionAsked(permAsked === 'true');
         setPushPermissionStatus(permStatus);
+
+        // Get current session
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(mapSupabaseUser(session?.user ?? null));
       } catch (error) {
-        console.error('Failed to load auth state:', error);
+        console.error('Failed to initialize auth:', error);
       } finally {
         setLoading(false);
       }
     }
 
-    loadAuthState();
+    initialize();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(mapSupabaseUser(session?.user ?? null));
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const signInWithGoogle = async () => {
-    // TODO: Implement real Google Sign-In with Supabase
-    // await supabase.auth.signInWithOAuth({ provider: 'google' })
+  const signInWithGoogle = useCallback(async () => {
+    try {
+      // Create redirect URI for the app
+      const redirectUri = makeRedirectUri({
+        scheme: 'nabajk',
+        path: 'auth/callback',
+      });
 
-    // Mock implementation for now
-    const mockEmail = 'user@gmail.com';
-    await AsyncStorage.setItem(KEYS.USER_EMAIL, mockEmail);
-    setUser({ email: mockEmail });
-  };
+      // Get OAuth URL from Supabase
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUri,
+          skipBrowserRedirect: true,
+        },
+      });
 
-  const signInWithEmail = async (email: string) => {
-    // TODO: Implement real Email Sign-In with Supabase (magic link/OTP)
-    // await supabase.auth.signInWithOtp({ email })
+      if (error) throw error;
+      if (!data.url) throw new Error('No OAuth URL returned');
 
-    // Mock implementation for now
-    await AsyncStorage.setItem(KEYS.USER_EMAIL, email);
-    setUser({ email });
-  };
+      // Open browser for Google sign-in
+      const result = await WebBrowser.openAuthSessionAsync(
+        data.url,
+        redirectUri,
+        { showInRecents: true }
+      );
 
-  const signOut = async () => {
-    // TODO: Implement real sign out with Supabase
-    // await supabase.auth.signOut()
+      if (result.type === 'success') {
+        // Extract tokens from the URL
+        const url = new URL(result.url);
+        const params = new URLSearchParams(url.hash.substring(1)); // Remove #
 
-    await AsyncStorage.removeItem(KEYS.USER_EMAIL);
-    setUser(null);
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
 
-    // Reset push permission state on sign out
-    await AsyncStorage.removeItem(KEYS.PUSH_PERMISSION_ASKED);
-    await AsyncStorage.removeItem(KEYS.PUSH_PERMISSION_STATUS);
-    setPushPermissionAsked(false);
-    setPushPermissionStatus(null);
-  };
+        if (accessToken) {
+          // Set the session with the tokens
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || '',
+          });
 
-  const markPushPermissionAsked = async (status: string) => {
+          if (sessionError) throw sessionError;
+        }
+      }
+    } catch (error) {
+      console.error('Google sign in failed:', error);
+      throw error;
+    }
+  }, []);
+
+  const signInWithEmail = useCallback(async (email: string) => {
+    try {
+      // Create redirect URI for the app
+      const redirectUri = makeRedirectUri({
+        scheme: 'nabajk',
+        path: 'auth/callback',
+      });
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: redirectUri,
+        },
+      });
+
+      if (error) throw error;
+
+      // For magic link, user clicks link in email which will redirect back to app
+      // The onAuthStateChange listener will handle the session
+    } catch (error) {
+      console.error('Email sign in failed:', error);
+      throw error;
+    }
+  }, []);
+
+  const signOut = useCallback(async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      // Reset push permission state on sign out
+      await AsyncStorage.removeItem(KEYS.PUSH_PERMISSION_ASKED);
+      await AsyncStorage.removeItem(KEYS.PUSH_PERMISSION_STATUS);
+      setPushPermissionAsked(false);
+      setPushPermissionStatus(null);
+    } catch (error) {
+      console.error('Sign out failed:', error);
+      throw error;
+    }
+  }, []);
+
+  const markPushPermissionAsked = useCallback(async (status: string) => {
     await AsyncStorage.setItem(KEYS.PUSH_PERMISSION_ASKED, 'true');
     await AsyncStorage.setItem(KEYS.PUSH_PERMISSION_STATUS, status);
     setPushPermissionAsked(true);
     setPushPermissionStatus(status);
-  };
+  }, []);
+
+  // Memoize context value to prevent unnecessary re-renders
+  const value = useMemo(
+    () => ({
+      user,
+      loading,
+      signInWithGoogle,
+      signInWithEmail,
+      signOut,
+      pushPermissionAsked,
+      pushPermissionStatus,
+      markPushPermissionAsked,
+    }),
+    [user, loading, signInWithGoogle, signInWithEmail, signOut, pushPermissionAsked, pushPermissionStatus, markPushPermissionAsked]
+  );
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        signInWithGoogle,
-        signInWithEmail,
-        signOut,
-        pushPermissionAsked,
-        pushPermissionStatus,
-        markPushPermissionAsked,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

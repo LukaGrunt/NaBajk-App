@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from './AuthContext';
 
 interface UserProfile {
   name: string;
@@ -15,48 +16,65 @@ interface UserProfileContextType {
 const UserProfileContext = createContext<UserProfileContextType | undefined>(undefined);
 
 const USER_PROFILE_KEY = '@nabajk_user_profile';
-const DEFAULT_USER_ID = 'user-lea'; // Mock user ID
 
 export function UserProfileProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
+  // Load profile when user changes
   useEffect(() => {
-    loadUserProfile();
-  }, []);
+    if (user?.id) {
+      loadUserProfile(user.id);
+    } else {
+      setUserProfile(null);
+    }
+  }, [user?.id]);
 
-  const loadUserProfile = async () => {
+  const loadUserProfile = async (userId: string) => {
     try {
-      const stored = await AsyncStorage.getItem(USER_PROFILE_KEY);
+      const stored = await AsyncStorage.getItem(`${USER_PROFILE_KEY}_${userId}`);
       if (stored) {
-        setUserProfile(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        // Ensure userId matches current auth user
+        setUserProfile({ ...parsed, userId });
       } else {
-        // Initialize with default user ID but no name
-        setUserProfile({ userId: DEFAULT_USER_ID, name: '' });
+        // Initialize with authenticated user ID but no name
+        setUserProfile({ userId, name: '' });
       }
     } catch (error) {
       console.error('Failed to load user profile:', error);
-      setUserProfile({ userId: DEFAULT_USER_ID, name: '' });
+      setUserProfile({ userId, name: '' });
     }
   };
 
-  const setUserName = async (name: string) => {
+  const setUserName = useCallback(async (name: string) => {
+    if (!user?.id) {
+      throw new Error('Cannot set user name without authenticated user');
+    }
+
     try {
       const profile: UserProfile = {
-        userId: userProfile?.userId || DEFAULT_USER_ID,
+        userId: user.id,
         name: name.trim(),
       };
-      await AsyncStorage.setItem(USER_PROFILE_KEY, JSON.stringify(profile));
+      await AsyncStorage.setItem(`${USER_PROFILE_KEY}_${user.id}`, JSON.stringify(profile));
       setUserProfile(profile);
     } catch (error) {
       console.error('Failed to save user profile:', error);
       throw error;
     }
-  };
+  }, [user?.id]);
 
   const hasName = Boolean(userProfile?.name && userProfile.name.trim().length > 0);
 
+  const value = useMemo(() => ({
+    userProfile,
+    setUserName,
+    hasName,
+  }), [userProfile, setUserName, hasName]);
+
   return (
-    <UserProfileContext.Provider value={{ userProfile, setUserName, hasName }}>
+    <UserProfileContext.Provider value={value}>
       {children}
     </UserProfileContext.Provider>
   );

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Platform,
   TextInput,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -31,6 +32,9 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { t } from '@/constants/i18n';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
+const REGIONS = ['gorenjska', 'dolenjska', 'stajerska'] as const;
+type Region = typeof REGIONS[number];
+
 export default function CreateGroupRideScreen() {
   const router = useRouter();
   const { language } = useLanguage();
@@ -42,7 +46,7 @@ export default function CreateGroupRideScreen() {
 
   // Form state
   const [title, setTitle] = useState('');
-  const [region] = useState('gorenjska'); // Only Gorenjska active for MVP
+  const [region, setRegion] = useState<Region>('gorenjska');
   const [date, setDate] = useState(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)); // Default: 1 week from now
   const [time, setTime] = useState(new Date());
   const [meetingPoint, setMeetingPoint] = useState('');
@@ -53,6 +57,7 @@ export default function CreateGroupRideScreen() {
   const [externalUrl, setExternalUrl] = useState('');
   const [visibility] = useState<'public' | 'unlisted'>('public');
   const [capacity, setCapacity] = useState('');
+  const [averageSpeed, setAverageSpeed] = useState('');
 
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -75,6 +80,15 @@ export default function CreateGroupRideScreen() {
     } finally {
       setRoutesLoading(false);
     }
+  };
+
+  const getRegionLabel = (r: Region): string => {
+    const labels: Record<Region, { sl: string; en: string }> = {
+      gorenjska: { sl: 'Gorenjska', en: 'Gorenjska' },
+      dolenjska: { sl: 'Dolenjska', en: 'Dolenjska' },
+      stajerska: { sl: 'Štajerska', en: 'Štajerska' },
+    };
+    return labels[r][language];
   };
 
   // Filtered routes based on search query
@@ -164,12 +178,17 @@ export default function CreateGroupRideScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.flex}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>{t(language, 'createGroupRide')}</Text>
@@ -190,6 +209,33 @@ export default function CreateGroupRideScreen() {
             placeholder={t(language, 'rideTitlePlaceholder')}
             error={errors.title}
           />
+
+          {/* Region Selection */}
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>{t(language, 'regionLabel')}</Text>
+            <View style={styles.regionChipsRow}>
+              {REGIONS.map((r) => (
+                <TouchableOpacity
+                  key={r}
+                  style={[
+                    styles.regionChip,
+                    region === r && styles.regionChipSelected,
+                  ]}
+                  onPress={() => setRegion(r)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.regionChipText,
+                      region === r && styles.regionChipTextSelected,
+                    ]}
+                  >
+                    {getRegionLabel(r)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
 
           <View style={styles.row}>
             <View style={styles.halfWidth}>
@@ -322,6 +368,14 @@ export default function CreateGroupRideScreen() {
           />
 
           <FormInput
+            label={`${t(language, 'averageSpeed')} ${t(language, 'optional')}`}
+            value={averageSpeed}
+            onChangeText={setAverageSpeed}
+            placeholder="40km/h povprecna hitrost"
+            keyboardType="default"
+          />
+
+          <FormInput
             label={t(language, 'externalUrlLabel')}
             value={externalUrl}
             onChangeText={(text) => {
@@ -375,6 +429,7 @@ export default function CreateGroupRideScreen() {
           </View>
         </View>
       </ScrollView>
+    </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -383,6 +438,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  flex: {
+    flex: 1,
   },
   scrollView: {
     flex: 1,
@@ -491,5 +549,32 @@ const styles = StyleSheet.create({
   },
   buttonHalf: {
     flex: 1,
+  },
+  // Region selection styles
+  regionChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  regionChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: Colors.cardSurface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  regionChipSelected: {
+    backgroundColor: 'rgba(11, 191, 118, 0.15)',
+    borderColor: Colors.brandGreen,
+  },
+  regionChipText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+  },
+  regionChipTextSelected: {
+    color: Colors.brandGreen,
+    fontWeight: '600',
   },
 });

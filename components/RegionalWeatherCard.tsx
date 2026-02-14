@@ -16,6 +16,9 @@ import Colors from '@/constants/Colors';
 // Weather condition types
 type WeatherCondition = 'sunny' | 'cloudy' | 'partly-cloudy' | 'rainy' | 'stormy';
 
+// Proper type for FontAwesome icon names
+type FAIconName = React.ComponentProps<typeof FontAwesome>['name'];
+
 type ForecastPoint = {
   time: string;
   tempC: number;
@@ -26,20 +29,20 @@ type ForecastPoint = {
 };
 
 // Map condition to FontAwesome icon
-function getWeatherIcon(condition: WeatherCondition): { name: string; color: string } {
+function getWeatherIcon(condition: WeatherCondition): { name: FAIconName; color: string } {
   switch (condition) {
     case 'sunny':
       return { name: 'sun-o', color: '#FFD93D' };
     case 'cloudy':
       return { name: 'cloud', color: Colors.textSecondary };
     case 'partly-cloudy':
-      return { name: 'cloud', color: Colors.textMuted };
+      return { name: 'cloud', color: Colors.textSecondary };
     case 'rainy':
       return { name: 'tint', color: '#6CB4EE' };
     case 'stormy':
       return { name: 'bolt', color: '#FFD93D' };
     default:
-      return { name: 'cloud', color: Colors.textMuted };
+      return { name: 'cloud', color: Colors.textSecondary };
   }
 }
 
@@ -77,8 +80,8 @@ export function RegionalWeatherCard() {
                 {/* Icon + Temp row */}
                 <View style={styles.iconTempRow}>
                   <FontAwesome
-                    name={icon.name as any}
-                    size={16}
+                    name={icon.name}
+                    size={20}
                     color={icon.color}
                     style={styles.icon}
                   />
@@ -109,12 +112,12 @@ const styles = StyleSheet.create({
   },
   strip: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: Colors.surface1,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: Colors.border,
     borderRadius: 14,
     paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingHorizontal: 16,
   },
   column: {
     flex: 1,
@@ -124,17 +127,17 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   columnActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: Colors.surface2,
   },
   divider: {
     width: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: Colors.border,
     marginHorizontal: 4,
   },
   time: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: Colors.textMuted,
+    fontSize: 14,
+    fontWeight: '400',
+    color: Colors.textSecondary,
     marginBottom: 6,
   },
   iconTempRow: {
@@ -146,12 +149,13 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   temp: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: Colors.textPrimary,
   },
   details: {
-    fontSize: 10,
-    color: Colors.textMuted,
+    fontSize: 14,
+    fontWeight: '400',
+    color: Colors.textSecondary,
   },
 });

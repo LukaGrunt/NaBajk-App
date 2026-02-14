@@ -43,6 +43,7 @@ export const strings = {
     searchResults: 'rezultatov',
     searchResult: 'rezultat',
     noRoutesFound: 'Ni najdenih poti',
+    loading: 'Nalagam…',
 
     // Categories
     categoryBrowsing: 'Prebrskaj po kategorijah',
@@ -158,6 +159,9 @@ export const strings = {
     rideTitle: 'Naziv vožnje',
     rideTitlePlaceholder: 'npr. Sobotna kava v Radovljico',
     selectRegion: 'Izberi regijo',
+    regionLabel: 'Regija',
+    notifyNewRides: 'Obvesti me o novih vožnjah',
+    notifyRegionsLabel: 'Izberi regije za obvestila:',
     selectDate: 'Izberi datum',
     selectTime: 'Izberi čas',
     meetingPointLabel: 'Zbirno mesto',
@@ -175,6 +179,7 @@ export const strings = {
     unlistedRide: 'Nejavna',
     capacityLabel: 'Omejitev udeležencev (neobvezno)',
     capacityPlaceholder: 'Največje število',
+    averageSpeed: 'Povprečna hitrost',
     createRide: 'Ustvari vožnjo',
     cancel: 'Prekliči',
 
@@ -251,6 +256,7 @@ export const strings = {
     searchResults: 'results',
     searchResult: 'result',
     noRoutesFound: 'No routes found',
+    loading: 'Loading…',
 
     // Categories
     categoryBrowsing: 'Browse by Category',
@@ -366,6 +372,9 @@ export const strings = {
     rideTitle: 'Ride title',
     rideTitlePlaceholder: 'e.g. Saturday coffee ride to Radovljica',
     selectRegion: 'Select region',
+    regionLabel: 'Region',
+    notifyNewRides: 'Notify me about new rides',
+    notifyRegionsLabel: 'Select regions for notifications:',
     selectDate: 'Select date',
     selectTime: 'Select time',
     meetingPointLabel: 'Meeting point',
@@ -383,6 +392,7 @@ export const strings = {
     unlistedRide: 'Unlisted',
     capacityLabel: 'Capacity limit (optional)',
     capacityPlaceholder: 'Max number',
+    averageSpeed: 'Average speed',
     createRide: 'Create ride',
     cancel: 'Cancel',
 

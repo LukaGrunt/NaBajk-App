@@ -1,6 +1,7 @@
 import React from 'react';
-import { Pressable, View, Text, Image, StyleSheet } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Pressable, View, Text, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/Colors';
 import { TimeDuration } from '@/types/Route';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -29,6 +30,16 @@ function getTimeImage(duration: TimeDuration): string {
   }
 }
 
+function getRouteTeaser(duration: TimeDuration, language: 'sl' | 'en'): string {
+  const teasers = {
+    '1h':  { sl: 'Hitra dolinska vožnja', en: 'Quick valley ride' },
+    '2h':  { sl: 'Bled scenarska pot', en: 'Bled scenic route' },
+    '3h':  { sl: 'Gorski prelaz', en: 'Mountain pass' },
+    '4h+': { sl: 'Epska avantura', en: 'Epic adventure' },
+  };
+  return teasers[duration][language];
+}
+
 export function QuickPickCard({ duration, onPress }: QuickPickCardProps) {
   const { language } = useLanguage();
 
@@ -37,11 +48,24 @@ export function QuickPickCard({ duration, onPress }: QuickPickCardProps) {
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
       onPress={() => onPress(duration)}
     >
-      <Image source={{ uri: getTimeImage(duration) }} style={styles.backgroundImage} blurRadius={3} />
-      <View style={styles.overlay} />
+      <Image source={getTimeImage(duration)} style={styles.backgroundImage} blurRadius={3} cachePolicy="memory-disk" contentFit="cover" />
+
+      {/* Gradient overlay: transparent at top → dark at bottom */}
+      <LinearGradient
+        colors={['transparent', 'rgba(10,10,11,0.75)']}
+        style={styles.gradient}
+        locations={[0, 1]}
+      />
+
+      {/* Bottom-aligned content */}
       <View style={styles.content}>
-        <FontAwesome name="clock-o" size={22} color="#FFFFFF" style={styles.icon} />
-        <Text style={styles.label}>{t(language, getTimeLabel(duration))}</Text>
+        {/* Duration pill */}
+        <View style={styles.durationPill}>
+          <Text style={styles.durationText}>{t(language, getTimeLabel(duration))}</Text>
+        </View>
+
+        {/* Route teaser */}
+        <Text style={styles.teaser}>{getRouteTeaser(duration, language)}</Text>
       </View>
     </Pressable>
   );
@@ -50,11 +74,11 @@ export function QuickPickCard({ duration, onPress }: QuickPickCardProps) {
 const styles = StyleSheet.create({
   card: {
     width: 140,
-    height: 80,
+    height: 95,  // ~3:2 aspect ratio
     borderRadius: 12,
-    marginRight: 10,
+    marginRight: 12,
     overflow: 'hidden',
-    backgroundColor: Colors.cardSurface,
+    backgroundColor: Colors.surface1,
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -65,23 +89,32 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
-  overlay: {
+  gradient: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    right: 10,
+    gap: 6,
   },
-  icon: {
-    marginBottom: 6,
+  durationPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.surface2,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  label: {
+  durationText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: '500',
+    color: Colors.textPrimary,
+  },
+  teaser: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: Colors.textSecondary,
   },
 });

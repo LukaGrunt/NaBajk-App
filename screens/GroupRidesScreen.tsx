@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
+  Switch,
+  ListRenderItem,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { listGroupRides, getRSVPCounts } from '@/repositories/groupRidesRepo';
 import { getRoute } from '@/repositories/routesRepo';
@@ -18,6 +21,11 @@ import Colors from '@/constants/Colors';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { t } from '@/constants/i18n';
 
+const REGIONS = ['gorenjska', 'dolenjska', 'stajerska'] as const;
+type Region = typeof REGIONS[number];
+
+const NOTIFICATION_PREFS_KEY = 'nabajk_group_ride_notifications';
+
 export default function GroupRidesScreen() {
   const router = useRouter();
   const { language } = useLanguage();
@@ -26,9 +34,66 @@ export default function GroupRidesScreen() {
   const [routes, setRoutes] = useState<Record<string, Route>>({});
   const [loading, setLoading] = useState(true);
 
+  // Notification preferences
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notifyRegions, setNotifyRegions] = useState<Region[]>([]);
+
   useEffect(() => {
     loadGroupRides();
+    loadNotificationPrefs();
   }, []);
+
+  const loadNotificationPrefs = async () => {
+    try {
+      const stored = await AsyncStorage.getItem(NOTIFICATION_PREFS_KEY);
+      if (stored) {
+        const prefs = JSON.parse(stored);
+        setNotificationsEnabled(prefs.enabled ?? false);
+        setNotifyRegions(prefs.regions ?? []);
+      }
+    } catch (error) {
+      console.error('Failed to load notification prefs:', error);
+    }
+  };
+
+  const saveNotificationPrefs = async (enabled: boolean, regions: Region[]) => {
+    try {
+      await AsyncStorage.setItem(
+        NOTIFICATION_PREFS_KEY,
+        JSON.stringify({ enabled, regions })
+      );
+    } catch (error) {
+      console.error('Failed to save notification prefs:', error);
+    }
+  };
+
+  const toggleNotifications = (value: boolean) => {
+    setNotificationsEnabled(value);
+    if (!value) {
+      setNotifyRegions([]);
+      saveNotificationPrefs(false, []);
+    } else {
+      setNotifyRegions([...REGIONS]);
+      saveNotificationPrefs(true, [...REGIONS]);
+    }
+  };
+
+  const toggleNotifyRegion = (regionToToggle: Region) => {
+    const newRegions = notifyRegions.includes(regionToToggle)
+      ? notifyRegions.filter((r) => r !== regionToToggle)
+      : [...notifyRegions, regionToToggle];
+    setNotifyRegions(newRegions);
+    saveNotificationPrefs(notificationsEnabled, newRegions);
+  };
+
+  const getRegionLabel = (r: Region): string => {
+    const labels: Record<Region, { sl: string; en: string }> = {
+      gorenjska: { sl: 'Gorenjska', en: 'Gorenjska' },
+      dolenjska: { sl: 'Dolenjska', en: 'Dolenjska' },
+      stajerska: { sl: 'Štajerska', en: 'Štajerska' },
+    };
+    return labels[r][language];
+  };
 
   const loadGroupRides = async () => {
     setLoading(true);
@@ -36,22 +101,31 @@ export default function GroupRidesScreen() {
       const rides = await listGroupRides();
       setGroupRides(rides);
 
-      // Load RSVP counts and routes for each ride
+      // Load RSVP counts and routes in parallel (not sequentially!)
+      const [rsvpResults, routeResults] = await Promise.all([
+        // Fetch all RSVP counts in parallel
+        Promise.all(rides.map(ride => getRSVPCounts(ride.id))),
+        // Fetch all routes in parallel (filter to only rides with routeId)
+        Promise.all(
+          rides
+            .filter(ride => ride.routeId)
+            .map(ride => getRoute(ride.routeId!).then(route => ({ routeId: ride.routeId!, route })))
+        ),
+      ]);
+
+      // Build counts record
       const counts: Record<string, number> = {};
+      rides.forEach((ride, index) => {
+        counts[ride.id] = rsvpResults[index].going;
+      });
+
+      // Build routes record
       const routesData: Record<string, Route> = {};
-
-      for (const ride of rides) {
-        const rsvpData = await getRSVPCounts(ride.id);
-        counts[ride.id] = rsvpData.going;
-
-        // Fetch route if ride has a routeId
-        if (ride.routeId) {
-          const route = await getRoute(ride.routeId);
-          if (route) {
-            routesData[ride.routeId] = route;
-          }
+      routeResults.forEach(({ routeId, route }) => {
+        if (route) {
+          routesData[routeId] = route;
         }
-      }
+      });
 
       setRsvpCounts(counts);
       setRoutes(routesData);
@@ -66,75 +140,141 @@ export default function GroupRidesScreen() {
     router.push('/group-rides/create');
   };
 
+  // Memoized render item for FlatList
+  const renderGroupRideItem: ListRenderItem<GroupRide> = useCallback(
+    ({ item: ride }) => {
+      const route = ride.routeId ? routes[ride.routeId] : undefined;
+      return (
+        <GroupRideListItem
+          groupRide={ride}
+          route={route}
+          rsvpCount={rsvpCounts[ride.id] || 0}
+        />
+      );
+    },
+    [routes, rsvpCounts]
+  );
+
+  const keyExtractor = useCallback((item: GroupRide) => item.id, []);
+
+  // List header with create card and notifications
+  const ListHeader = useMemo(() => (
+    <>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>{t(language, 'groupRideTitle')}</Text>
+      </View>
+
+      {/* Create Your Own Card */}
+      <TouchableOpacity
+        style={styles.createCard}
+        onPress={handleCreatePress}
+        activeOpacity={0.8}
+      >
+        <View style={styles.createCardGlow} />
+        <View style={styles.createCardContent}>
+          <View style={styles.createIconCircle}>
+            <FontAwesome name="plus" size={24} color={Colors.background} />
+          </View>
+          <View style={styles.createCardText}>
+            <Text style={styles.createCardTitle}>{t(language, 'createYourOwn')}</Text>
+            <Text style={styles.createCardDesc}>{t(language, 'createYourOwnDesc')}</Text>
+          </View>
+          <FontAwesome name="chevron-right" size={16} color={Colors.brandGreen} />
+        </View>
+      </TouchableOpacity>
+
+      {/* Notification Preferences */}
+      <View style={styles.notificationSection}>
+        <View style={styles.notificationHeader}>
+          <View style={styles.notificationTitleRow}>
+            <FontAwesome name="bell" size={16} color={Colors.textSecondary} />
+            <Text style={styles.notificationTitle}>{t(language, 'notifyNewRides')}</Text>
+          </View>
+          <Switch
+            value={notificationsEnabled}
+            onValueChange={toggleNotifications}
+            trackColor={{ false: Colors.border, true: Colors.brandGreen }}
+            thumbColor={Colors.textPrimary}
+          />
+        </View>
+        {notificationsEnabled && (
+          <View style={styles.notificationRegions}>
+            <Text style={styles.notificationSubtitle}>{t(language, 'notifyRegionsLabel')}</Text>
+            <View style={styles.regionChipsRow}>
+              {REGIONS.map((r) => (
+                <TouchableOpacity
+                  key={r}
+                  style={[
+                    styles.notifyRegionChip,
+                    notifyRegions.includes(r) && styles.notifyRegionChipSelected,
+                  ]}
+                  onPress={() => toggleNotifyRegion(r)}
+                  activeOpacity={0.7}
+                >
+                  <FontAwesome
+                    name={notifyRegions.includes(r) ? 'check-square-o' : 'square-o'}
+                    size={14}
+                    color={notifyRegions.includes(r) ? Colors.brandGreen : Colors.textSecondary}
+                    style={styles.checkIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.notifyRegionChipText,
+                      notifyRegions.includes(r) && styles.notifyRegionChipTextSelected,
+                    ]}
+                  >
+                    {getRegionLabel(r)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+      </View>
+
+      {/* Section Title */}
+      <Text style={styles.sectionTitle}>{t(language, 'upcomingRides')}</Text>
+    </>
+  ), [language, notificationsEnabled, notifyRegions]);
+
+  // Empty state component
+  const ListEmpty = useCallback(() => {
+    if (loading) {
+      return <Text style={styles.loadingText}>Loading...</Text>;
+    }
+    return (
+      <View style={styles.emptyState}>
+        <FontAwesome name="calendar" size={48} color={Colors.textMuted} />
+        <Text style={styles.emptyText}>{t(language, 'noGroupRides')}</Text>
+        <TouchableOpacity
+          style={styles.emptyButton}
+          onPress={handleCreatePress}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.emptyButtonText}>
+            {t(language, 'createGroupRide')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }, [loading, language]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView
-        style={styles.scrollView}
+      <FlatList
+        data={groupRides}
+        renderItem={renderGroupRideItem}
+        keyExtractor={keyExtractor}
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={ListEmpty}
+        ListFooterComponent={<View style={styles.bottomSpacer} />}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>{t(language, 'groupRideTitle')}</Text>
-        </View>
-
-        {/* Create Your Own Card */}
-        <TouchableOpacity
-          style={styles.createCard}
-          onPress={handleCreatePress}
-          activeOpacity={0.8}
-        >
-          <View style={styles.createCardGlow} />
-          <View style={styles.createCardContent}>
-            <View style={styles.createIconCircle}>
-              <FontAwesome name="plus" size={24} color={Colors.background} />
-            </View>
-            <View style={styles.createCardText}>
-              <Text style={styles.createCardTitle}>{t(language, 'createYourOwn')}</Text>
-              <Text style={styles.createCardDesc}>{t(language, 'createYourOwnDesc')}</Text>
-            </View>
-            <FontAwesome name="chevron-right" size={16} color={Colors.brandGreen} />
-          </View>
-        </TouchableOpacity>
-
-        {/* Group Rides List */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t(language, 'upcomingRides')}</Text>
-
-          {loading ? (
-            <Text style={styles.loadingText}>Loading...</Text>
-          ) : groupRides.length === 0 ? (
-            <View style={styles.emptyState}>
-              <FontAwesome name="calendar" size={48} color={Colors.textMuted} />
-              <Text style={styles.emptyText}>{t(language, 'noGroupRides')}</Text>
-              <TouchableOpacity
-                style={styles.emptyButton}
-                onPress={handleCreatePress}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.emptyButtonText}>
-                  {t(language, 'createGroupRide')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            groupRides.map((ride) => {
-              const route = ride.routeId ? routes[ride.routeId] : undefined;
-
-              return (
-                <GroupRideListItem
-                  key={ride.id}
-                  groupRide={ride}
-                  route={route}
-                  rsvpCount={rsvpCounts[ride.id] || 0}
-                />
-              );
-            })
-          )}
-        </View>
-
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+      />
     </SafeAreaView>
   );
 }
@@ -143,9 +283,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-  },
-  scrollView: {
-    flex: 1,
   },
   scrollContent: {
     paddingBottom: 20,
@@ -208,9 +345,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     lineHeight: 18,
   },
-  section: {
-    marginBottom: 24,
-  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -249,5 +383,71 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 20,
+  },
+  // Notification preferences styles
+  notificationSection: {
+    backgroundColor: Colors.surface1,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 24,
+  },
+  notificationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  notificationTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  notificationTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  notificationRegions: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  notificationSubtitle: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginBottom: 12,
+  },
+  regionChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  notifyRegionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: Colors.surface2,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  notifyRegionChipSelected: {
+    backgroundColor: 'rgba(11, 191, 118, 0.1)',
+    borderColor: Colors.brandGreen,
+  },
+  notifyRegionChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+  },
+  notifyRegionChipTextSelected: {
+    color: Colors.brandGreen,
+  },
+  checkIcon: {
+    marginRight: 6,
   },
 });

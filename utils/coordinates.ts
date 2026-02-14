@@ -1,12 +1,32 @@
 /**
+ * Check if a URL is a valid Google Maps link (including shortened links)
+ */
+export function isGoogleMapsUrl(url: string): boolean {
+  return (
+    url.includes('maps.google.com') ||
+    url.includes('google.com/maps') ||
+    url.includes('maps.app.goo.gl') ||
+    url.includes('goo.gl/maps')
+  );
+}
+
+/**
  * Parse Google Maps URL to extract coordinates
  * Supports formats:
  * - https://maps.google.com/?q=46.0569,14.5058
  * - https://www.google.com/maps/place/46.0569,14.5058
- * - https://goo.gl/maps/... (shortened - best effort)
+ * - https://maps.app.goo.gl/... (app links - accepted but can't extract coords)
+ * - https://goo.gl/maps/... (shortened - accepted but can't extract coords)
+ * - @lat,lng format
  */
 export function parseGoogleMapsUrl(url: string): { lat: number; lng: number } | null {
   try {
+    // Accept Google Maps app links and shortened links as valid
+    // Return null to indicate we can't extract coordinates, but the URL is valid
+    if (url.includes('maps.app.goo.gl') || url.includes('goo.gl/maps')) {
+      return null;
+    }
+
     // Try query parameter format
     const qMatch = url.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
     if (qMatch) {
@@ -61,16 +81,27 @@ export function validateCoordinates(lat: number, lng: number): boolean {
 
 /**
  * Parse coordinates from user input (try URL first, then string)
+ * Returns null for valid shortened Google Maps links (can't extract coords)
+ * Returns coordinates object for parseable formats
+ * Returns null for invalid input
  */
 export function parseCoordinatesInput(input: string): { lat: number; lng: number } | null {
-  // Try as Google Maps URL
-  const fromUrl = parseGoogleMapsUrl(input);
-  if (fromUrl && validateCoordinates(fromUrl.lat, fromUrl.lng)) {
-    return fromUrl;
+  const trimmed = input.trim();
+
+  // Check if it's a Google Maps URL (including shortened links)
+  if (isGoogleMapsUrl(trimmed)) {
+    // Try to parse coordinates from URL
+    const fromUrl = parseGoogleMapsUrl(trimmed);
+    if (fromUrl && validateCoordinates(fromUrl.lat, fromUrl.lng)) {
+      return fromUrl;
+    }
+    // If it's a valid Google Maps URL but we can't parse coords (shortened link),
+    // return a marker value that indicates "valid but unparseable"
+    return { lat: 0, lng: 0 };
   }
 
   // Try as lat,lng string
-  const fromString = parseLatLngString(input);
+  const fromString = parseLatLngString(trimmed);
   if (fromString && validateCoordinates(fromString.lat, fromString.lng)) {
     return fromString;
   }

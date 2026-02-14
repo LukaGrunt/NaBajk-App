@@ -16,6 +16,11 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "ravnikar.luka@gmail.com",
+        "appleTeamId": "43359GLTZ9"
+      }
+    }
   }
 }

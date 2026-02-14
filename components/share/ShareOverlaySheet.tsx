@@ -124,10 +124,13 @@ export function ShareOverlaySheet({ visible, pngPath, onClose }: ShareOverlayShe
 
 // ── ShareBtn ───────────────────────────────────────────────
 
+// Proper type for FontAwesome icon names
+type FAIconName = React.ComponentProps<typeof FontAwesome>['name'];
+
 function ShareBtn({
   icon, label, color, disabled, onPress,
 }: {
-  icon:     string;
+  icon:     FAIconName;
   label:    string;
   color:    string;
   disabled: boolean;
@@ -141,7 +144,7 @@ function ShareBtn({
       activeOpacity={0.7}
     >
       <View style={[styles.shareBtnIcon, { backgroundColor: color + '22' }]}>
-        <FontAwesome name={icon as any} size={18} color={color} />
+        <FontAwesome name={icon} size={18} color={color} />
       </View>
       <Text style={styles.shareBtnLabel}>{label}</Text>
     </TouchableOpacity>

@@ -3,7 +3,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
 import { View } from 'react-native';
 import Colors from '@/constants/Colors';
-import { CenterTabButton } from '@/components/record/CenterTabButton';
+import { FloatingRideButton } from '@/components/record/FloatingRideButton';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { t } from '@/constants/i18n';
 
@@ -15,28 +15,29 @@ export default function TabLayout() {
   const { language } = useLanguage();
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors.brandGreen,
-        tabBarInactiveTintColor: Colors.textMuted,
-        tabBarStyle: {
-          backgroundColor: Colors.cardSurface,
-          borderTopColor: Colors.border,
-          borderTopWidth: 1,
-          height: 82,
-          paddingBottom: 16,
-          paddingTop: 6,
-        },
-        tabBarItemStyle: {
-          justifyContent: 'center',
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
-        },
-        headerShown: false,
-      }}
-    >
+    <>
+      <Tabs
+        screenOptions={{
+          tabBarActiveTintColor: Colors.brandGreen,
+          tabBarInactiveTintColor: Colors.textSecondary,
+          tabBarStyle: {
+            backgroundColor: Colors.background,
+            borderTopColor: Colors.border,
+            borderTopWidth: 1,
+            height: 56,
+            paddingBottom: 8,
+            paddingTop: 8,
+          },
+          tabBarItemStyle: {
+            justifyContent: 'center',
+          },
+          tabBarLabelStyle: {
+            fontSize: 12,
+            fontWeight: '500',
+          },
+          headerShown: false,
+        }}
+      >
       <Tabs.Screen
         name="index"
         options={{
@@ -51,13 +52,11 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="trophy" color={color} />,
         }}
       />
+      {/* Hidden record tab - required for routing but not shown in tab bar */}
       <Tabs.Screen
         name="record"
         options={{
-          title:          '',
-          tabBarLabel:    () => null,
-          tabBarIcon:     () => null,
-          tabBarButton:   (props: any) => <CenterTabButton {...props} />,
+          href: null, // Hide from tab bar
         }}
       />
       <Tabs.Screen
@@ -75,5 +74,9 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+
+    {/* Floating Action Button - "The Beacon" */}
+    <FloatingRideButton />
+  </>
   );
 }

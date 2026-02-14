@@ -1,26 +1,52 @@
 import { supabase } from '@/lib/supabase';
 import { GroupRide, GroupRideRSVP, GroupRideStatus } from '@/types/GroupRide';
 
+// Supabase row types (snake_case from database)
+interface SupabaseGroupRideRow {
+  id: string;
+  title: string;
+  region: string;
+  starts_at: string;
+  meeting_point: string;
+  meeting_coordinates: { lat: number; lng: number } | null;
+  route_id: string | null;
+  notes: string | null;
+  external_url: string | null;
+  visibility: string;
+  capacity: number | null;
+  created_by: string;
+  created_at: string;
+}
+
+interface SupabaseRSVPRow {
+  id: string;
+  group_ride_id: string;
+  user_id: string;
+  user_name: string;
+  status: GroupRideStatus;
+  created_at: string;
+}
+
 // Helper: Map Supabase snake_case to TypeScript camelCase
-function mapSupabaseToGroupRide(data: any): GroupRide {
+function mapSupabaseToGroupRide(data: SupabaseGroupRideRow): GroupRide {
   return {
     id: data.id,
     title: data.title,
-    region: data.region,
+    region: data.region as GroupRide['region'],
     startsAt: data.starts_at,
     meetingPoint: data.meeting_point,
-    meetingCoordinates: data.meeting_coordinates,
-    routeId: data.route_id,
-    notes: data.notes,
-    externalUrl: data.external_url,
-    visibility: data.visibility,
-    capacity: data.capacity,
+    meetingCoordinates: data.meeting_coordinates || { lat: 0, lng: 0 },
+    routeId: data.route_id || '',
+    notes: data.notes ?? undefined,
+    externalUrl: data.external_url ?? undefined,
+    visibility: (data.visibility === 'unlisted' ? 'unlisted' : 'public') as GroupRide['visibility'],
+    capacity: data.capacity ?? undefined,
     createdBy: data.created_by,
     createdAt: data.created_at,
   };
 }
 
-function mapSupabaseToRSVP(data: any): GroupRideRSVP {
+function mapSupabaseToRSVP(data: SupabaseRSVPRow): GroupRideRSVP {
   return {
     id: data.id,
     groupRideId: data.group_ride_id,
