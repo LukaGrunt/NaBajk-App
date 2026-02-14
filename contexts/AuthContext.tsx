@@ -124,6 +124,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         path: 'auth/callback',
       });
 
+      console.log('Google OAuth redirect URI:', redirectUri);
+
       // Get OAuth URL from Supabase
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -136,6 +138,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
       if (!data.url) throw new Error('No OAuth URL returned');
 
+      console.log('Opening OAuth URL...');
+
       // Open browser for Google sign-in
       const result = await WebBrowser.openAuthSessionAsync(
         data.url,
@@ -143,13 +147,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         { showInRecents: true }
       );
 
+      console.log('OAuth result type:', result.type);
       if (result.type === 'success') {
+        console.log('OAuth success URL:', result.url);
         // Extract tokens from the URL
         const url = new URL(result.url);
         const params = new URLSearchParams(url.hash.substring(1)); // Remove #
 
         const accessToken = params.get('access_token');
         const refreshToken = params.get('refresh_token');
+
+        console.log('Access token found:', !!accessToken);
 
         if (accessToken) {
           // Set the session with the tokens
@@ -159,7 +167,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
 
           if (sessionError) throw sessionError;
+          console.log('Session set successfully');
         }
+      } else {
+        console.log('OAuth was cancelled or dismissed');
       }
     } catch (error) {
       console.error('Google sign in failed:', error);
