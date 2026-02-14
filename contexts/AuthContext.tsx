@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from '@/lib/supabase';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
@@ -45,6 +46,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [pushPermissionAsked, setPushPermissionAsked] = useState(false);
   const [pushPermissionStatus, setPushPermissionStatus] = useState<string | null>(null);
 
+  // Handle deep link URLs (for email magic links)
+  const handleDeepLink = useCallback(async (url: string) => {
+    try {
+      // Parse tokens from URL hash (e.g., nabajk://auth/callback#access_token=...&refresh_token=...)
+      const hashIndex = url.indexOf('#');
+      if (hashIndex === -1) return;
+
+      const hash = url.substring(hashIndex + 1);
+      const params = new URLSearchParams(hash);
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+
+      if (accessToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken || '',
+        });
+        if (error) console.error('Failed to set session from deep link:', error);
+      }
+    } catch (error) {
+      console.error('Failed to handle deep link:', error);
+    }
+  }, []);
+
   // Load stored state and listen to auth changes
   useEffect(() => {
     async function initialize() {
@@ -56,6 +81,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ]);
         setPushPermissionAsked(permAsked === 'true');
         setPushPermissionStatus(permStatus);
+
+        // Check for initial deep link (app opened via URL)
+        const initialUrl = await Linking.getInitialURL();
+        if (initialUrl) {
+          await handleDeepLink(initialUrl);
+        }
 
         // Get current session
         const { data: { session } } = await supabase.auth.getSession();
@@ -74,10 +105,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(mapSupabaseUser(session?.user ?? null));
     });
 
+    // Listen for deep links while app is running
+    const linkingSubscription = Linking.addEventListener('url', (event) => {
+      handleDeepLink(event.url);
+    });
+
     return () => {
       subscription.unsubscribe();
+      linkingSubscription.remove();
     };
-  }, []);
+  }, [handleDeepLink]);
 
   const signInWithGoogle = useCallback(async () => {
     try {
