@@ -4,6 +4,7 @@ import { Tabs } from 'expo-router';
 import { View } from 'react-native';
 import Colors from '@/constants/Colors';
 import { FloatingRideButton } from '@/components/record/FloatingRideButton';
+import { CustomTabBar } from '@/components/navigation/CustomTabBar';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { t } from '@/constants/i18n';
 
@@ -17,24 +18,10 @@ export default function TabLayout() {
   return (
     <>
       <Tabs
+        tabBar={(props) => <CustomTabBar {...props} />}
         screenOptions={{
           tabBarActiveTintColor: Colors.brandGreen,
           tabBarInactiveTintColor: Colors.textSecondary,
-          tabBarStyle: {
-            backgroundColor: Colors.background,
-            borderTopColor: Colors.border,
-            borderTopWidth: 1,
-            height: 56,
-            paddingBottom: 8,
-            paddingTop: 8,
-          },
-          tabBarItemStyle: {
-            justifyContent: 'center',
-          },
-          tabBarLabelStyle: {
-            fontSize: 12,
-            fontWeight: '500',
-          },
           headerShown: false,
         }}
       >
