@@ -1,13 +1,20 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import * as AuthSession from 'expo-auth-session';
 import { supabase } from '@/lib/supabase';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
 // Required for expo-auth-session to work properly
 WebBrowser.maybeCompleteAuthSession();
+
+// Create redirect URI using expo-auth-session (handles iOS URL scheme properly)
+const redirectUri = AuthSession.makeRedirectUri({
+  scheme: 'nabajk',
+  path: 'auth/callback',
+});
 
 const KEYS = {
   PUSH_PERMISSION_ASKED: 'nb_push_permission_asked',
@@ -118,10 +125,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = useCallback(async () => {
     try {
-      // Use simple redirect URI
-      const redirectUri = 'nabajk://auth/callback';
-
-      console.log('Google OAuth redirect URI:', redirectUri);
+      // DEBUG: Show what redirect URI we're using
+      Alert.alert('Redirect URI', redirectUri);
 
       // Get OAuth URL from Supabase
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -133,19 +138,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) {
-        console.error('Supabase OAuth error:', error);
+        Alert.alert('Supabase Error', error.message);
         throw error;
       }
       if (!data.url) throw new Error('No OAuth URL returned');
-
-      // DEBUG: Show the URL we're trying to open
-      Alert.alert('OAuth URL', data.url.substring(0, 200) + '...');
 
       // Open browser for Google sign-in
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
 
       // DEBUG: Show what happened
-      Alert.alert('OAuth Result', `Type: ${result.type}\nURL: ${result.type === 'success' ? (result as any).url?.substring(0, 100) : 'N/A'}`);
+      Alert.alert('OAuth Result', `Type: ${result.type}`);
 
       if (result.type === 'success' && (result as any).url) {
         const url = (result as any).url;
@@ -163,21 +165,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               refresh_token: refreshToken || '',
             });
 
-            if (sessionError) {
-              Alert.alert('Session Error', sessionError.message);
-              throw sessionError;
-            }
-            Alert.alert('Success', 'Google sign in successful!');
-          } else {
-            Alert.alert('No Token', 'No access token in response');
+            if (sessionError) throw sessionError;
           }
-        } else {
-          Alert.alert('No Hash', 'No hash fragment in callback URL');
         }
-      } else if (result.type === 'cancel') {
-        Alert.alert('Cancelled', 'OAuth was cancelled');
-      } else if (result.type === 'dismiss') {
-        Alert.alert('Dismissed', 'OAuth was dismissed');
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -188,8 +178,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithEmail = useCallback(async (email: string) => {
     try {
-      const redirectUri = 'nabajk://auth/callback';
-
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
