@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useCall
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from '@/lib/supabase';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -118,11 +117,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = useCallback(async () => {
     try {
-      // Create redirect URI for the app
-      const redirectUri = makeRedirectUri({
-        scheme: 'nabajk',
-        path: 'auth/callback',
-      });
+      // Use simple redirect URI
+      const redirectUri = 'nabajk://auth/callback';
 
       console.log('Google OAuth redirect URI:', redirectUri);
 
@@ -135,42 +131,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase OAuth error:', error);
+        throw error;
+      }
       if (!data.url) throw new Error('No OAuth URL returned');
 
       console.log('Opening OAuth URL...');
 
-      // Open browser for Google sign-in
-      const result = await WebBrowser.openAuthSessionAsync(
-        data.url,
-        redirectUri,
-        { showInRecents: true }
-      );
+      // Open browser for Google sign-in (removed preferEphemeralSession which can break iOS)
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
 
       console.log('OAuth result type:', result.type);
-      if (result.type === 'success') {
-        console.log('OAuth success URL:', result.url);
+
+      if (result.type === 'success' && result.url) {
         // Extract tokens from the URL
-        const url = new URL(result.url);
-        const params = new URLSearchParams(url.hash.substring(1)); // Remove #
+        const hashIndex = result.url.indexOf('#');
+        if (hashIndex !== -1) {
+          const hash = result.url.substring(hashIndex + 1);
+          const params = new URLSearchParams(hash);
 
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token');
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
 
-        console.log('Access token found:', !!accessToken);
+          if (accessToken) {
+            const { error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || '',
+            });
 
-        if (accessToken) {
-          // Set the session with the tokens
-          const { error: sessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken || '',
-          });
-
-          if (sessionError) throw sessionError;
-          console.log('Session set successfully');
+            if (sessionError) throw sessionError;
+            console.log('Google sign in successful');
+          }
         }
-      } else {
-        console.log('OAuth was cancelled or dismissed');
       }
     } catch (error) {
       console.error('Google sign in failed:', error);
@@ -180,11 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithEmail = useCallback(async (email: string) => {
     try {
-      // Create redirect URI for the app
-      const redirectUri = makeRedirectUri({
-        scheme: 'nabajk',
-        path: 'auth/callback',
-      });
+      const redirectUri = 'nabajk://auth/callback';
 
       const { error } = await supabase.auth.signInWithOtp({
         email,
@@ -194,9 +183,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) throw error;
-
-      // For magic link, user clicks link in email which will redirect back to app
-      // The onAuthStateChange listener will handle the session
     } catch (error) {
       console.error('Email sign in failed:', error);
       throw error;
