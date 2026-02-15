@@ -24,6 +24,11 @@
         "LSApplicationQueriesSchemes": [
           "instagram-stories",
           "facebook-stories"
+        ],
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": ["nabajk"]
+          }
         ]
       }
     },
@@ -44,10 +49,17 @@
       "expo-router",
       "expo-font",
       "@react-native-community/datetimepicker",
-      "expo-web-browser"
+      "expo-web-browser",
+      "@maplibre/maplibre-react-native"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/df3fd1bb-6e93-4a90-ac6c-9f7a99d08250"
     },
     "extra": {
       "router": {},
