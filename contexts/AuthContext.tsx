@@ -138,7 +138,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       if (!data.url) throw new Error('No OAuth URL returned');
 
-      console.log('Opening OAuth URL...');
+      // DEBUG: Show the URL we're trying to open
+      Alert.alert('OAuth URL', data.url.substring(0, 200) + '...');
 
       // Open browser for Google sign-in
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
