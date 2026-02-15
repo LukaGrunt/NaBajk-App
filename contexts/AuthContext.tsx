@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
+import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
@@ -139,16 +140,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       console.log('Opening OAuth URL...');
 
-      // Open browser for Google sign-in (removed preferEphemeralSession which can break iOS)
+      // Open browser for Google sign-in
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
 
-      console.log('OAuth result type:', result.type);
+      // DEBUG: Show what happened
+      Alert.alert('OAuth Result', `Type: ${result.type}\nURL: ${result.type === 'success' ? (result as any).url?.substring(0, 100) : 'N/A'}`);
 
-      if (result.type === 'success' && result.url) {
-        // Extract tokens from the URL
-        const hashIndex = result.url.indexOf('#');
+      if (result.type === 'success' && (result as any).url) {
+        const url = (result as any).url;
+        const hashIndex = url.indexOf('#');
         if (hashIndex !== -1) {
-          const hash = result.url.substring(hashIndex + 1);
+          const hash = url.substring(hashIndex + 1);
           const params = new URLSearchParams(hash);
 
           const accessToken = params.get('access_token');
@@ -160,13 +162,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               refresh_token: refreshToken || '',
             });
 
-            if (sessionError) throw sessionError;
-            console.log('Google sign in successful');
+            if (sessionError) {
+              Alert.alert('Session Error', sessionError.message);
+              throw sessionError;
+            }
+            Alert.alert('Success', 'Google sign in successful!');
+          } else {
+            Alert.alert('No Token', 'No access token in response');
           }
+        } else {
+          Alert.alert('No Hash', 'No hash fragment in callback URL');
         }
+      } else if (result.type === 'cancel') {
+        Alert.alert('Cancelled', 'OAuth was cancelled');
+      } else if (result.type === 'dismiss') {
+        Alert.alert('Dismissed', 'OAuth was dismissed');
       }
     } catch (error) {
-      console.error('Google sign in failed:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      Alert.alert('OAuth Error', msg);
       throw error;
     }
   }, []);
