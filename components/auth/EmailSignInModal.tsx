@@ -23,7 +23,8 @@ const strings = {
     title: 'Prijava z e-pošto',
     placeholder: 'vnesi e-pošto',
     cta: 'Nadaljuj',
-    error: 'Vnesi veljaven e-poštni naslov',
+    errorInvalid: 'Vnesi veljaven e-poštni naslov',
+    errorApi: 'Prijava ni uspela. Poskusi znova.',
     successTitle: 'Preveri e-pošto',
     successMessage: 'Poslali smo ti povezavo za prijavo na',
     done: 'V redu',
@@ -32,7 +33,8 @@ const strings = {
     title: 'Email sign in',
     placeholder: 'Enter your email',
     cta: 'Continue',
-    error: 'Enter a valid email address',
+    errorInvalid: 'Enter a valid email address',
+    errorApi: 'Sign in failed. Please try again.',
     successTitle: 'Check your email',
     successMessage: 'We sent a login link to',
     done: 'Got it',
@@ -57,7 +59,7 @@ export function EmailSignInModal({ visible, language, onClose, onSubmit }: Email
     setError('');
 
     if (!validateEmail(email.trim())) {
-      setError(t.error);
+      setError(t.errorInvalid);
       return;
     }
 
@@ -67,8 +69,14 @@ export function EmailSignInModal({ visible, language, onClose, onSubmit }: Email
       setSentToEmail(email.trim());
       setEmailSent(true);
       setEmail('');
-    } catch (err) {
-      setError(t.error);
+    } catch (err: unknown) {
+      console.error('Email sign in error:', err);
+      const message = err instanceof Error ? err.message : '';
+      if (message.includes('Invalid') || message.includes('invalid')) {
+        setError(t.errorInvalid);
+      } else {
+        setError(t.errorApi);
+      }
     } finally {
       setLoading(false);
     }
