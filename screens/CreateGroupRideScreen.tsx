@@ -147,8 +147,7 @@ export default function CreateGroupRideScreen() {
 
     // Create group ride
     setLoading(true);
-    try {
-      const newRide = await createGroupRide({
+    const rideData = {
         title: title.trim(),
         region: region as 'gorenjska' | 'dolenjska' | 'stajerska',
         startsAt: combinedDateTime.toISOString(),
@@ -160,13 +159,16 @@ export default function CreateGroupRideScreen() {
         visibility,
         capacity: capacity ? parseInt(capacity, 10) : undefined,
         createdBy: userProfile?.userId || 'user-default',
-      });
+      };
+    try {
+      const newRide = await createGroupRide(rideData);
 
       // Navigate to detail screen
       router.replace(`/group-rides/${newRide.id}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create group ride:', error);
-      setErrors({ submit: 'Failed to create ride. Please try again.' });
+      const errMsg = error?.message || 'Unknown error';
+      setErrors({ submit: `Failed: ${errMsg}` });
     } finally {
       setLoading(false);
     }

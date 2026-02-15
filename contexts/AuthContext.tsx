@@ -1,19 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import * as AuthSession from 'expo-auth-session';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { supabase } from '@/lib/supabase';
-import { Session, User as SupabaseUser } from '@supabase/supabase-js';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 
-// Required for expo-auth-session to work properly
-WebBrowser.maybeCompleteAuthSession();
-
-// Create redirect URI using expo-auth-session (handles iOS URL scheme properly)
-const redirectUri = AuthSession.makeRedirectUri({
-  scheme: 'nabajk',
-  path: 'auth/callback',
+// Configure Google Sign-In
+GoogleSignin.configure({
+  // Web client ID from Google Cloud Console
+  webClientId: '968402921869-0sot9ovufftpjqb9orjvsfnn8vnvspd2.apps.googleusercontent.com',
+  iosClientId: '968402921869-0sot9ovufftpjqb9orjvsfnn8vnvspd2.apps.googleusercontent.com',
 });
 
 const KEYS = {
@@ -56,7 +53,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Handle deep link URLs (for email magic links)
   const handleDeepLink = useCallback(async (url: string) => {
     try {
-      // Parse tokens from URL hash (e.g., nabajk://auth/callback#access_token=...&refresh_token=...)
       const hashIndex = url.indexOf('#');
       if (hashIndex === -1) return;
 
@@ -81,7 +77,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function initialize() {
       try {
-        // Load push permission state
         const [permAsked, permStatus] = await Promise.all([
           AsyncStorage.getItem(KEYS.PUSH_PERMISSION_ASKED),
           AsyncStorage.getItem(KEYS.PUSH_PERMISSION_STATUS),
@@ -89,13 +84,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPushPermissionAsked(permAsked === 'true');
         setPushPermissionStatus(permStatus);
 
-        // Check for initial deep link (app opened via URL)
         const initialUrl = await Linking.getInitialURL();
         if (initialUrl) {
           await handleDeepLink(initialUrl);
         }
 
-        // Get current session
         const { data: { session } } = await supabase.auth.getSession();
         setUser(mapSupabaseUser(session?.user ?? null));
       } catch (error) {
@@ -107,12 +100,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     initialize();
 
-    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(mapSupabaseUser(session?.user ?? null));
     });
 
-    // Listen for deep links while app is running
     const linkingSubscription = Linking.addEventListener('url', (event) => {
       handleDeepLink(event.url);
     });
@@ -125,53 +116,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = useCallback(async () => {
     try {
-      // DEBUG: Show what redirect URI we're using
-      Alert.alert('Redirect URI', redirectUri);
+      // Check if Google Play Services are available (Android only, always true on iOS)
+      await GoogleSignin.hasPlayServices();
 
-      // Get OAuth URL from Supabase
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      // Sign in with Google natively
+      const userInfo = await GoogleSignin.signIn();
+
+      if (!userInfo.data?.idToken) {
+        throw new Error('No ID token returned from Google');
+      }
+
+      // Sign in to Supabase with the Google ID token
+      const { error } = await supabase.auth.signInWithIdToken({
         provider: 'google',
-        options: {
-          redirectTo: redirectUri,
-          skipBrowserRedirect: true,
-        },
+        token: userInfo.data.idToken,
       });
 
-      if (error) {
-        Alert.alert('Supabase Error', error.message);
-        throw error;
+      if (error) throw error;
+    } catch (error: any) {
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        // User cancelled - don't show error
+        return;
+      } else if (error.code === statusCodes.IN_PROGRESS) {
+        Alert.alert('Sign In', 'Sign in already in progress');
+      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        Alert.alert('Error', 'Google Play Services not available');
+      } else {
+        console.error('Google sign in failed:', error);
+        Alert.alert('Sign In Failed', error.message || 'Unknown error');
       }
-      if (!data.url) throw new Error('No OAuth URL returned');
-
-      // Open browser for Google sign-in
-      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
-
-      // DEBUG: Show what happened
-      Alert.alert('OAuth Result', `Type: ${result.type}`);
-
-      if (result.type === 'success' && (result as any).url) {
-        const url = (result as any).url;
-        const hashIndex = url.indexOf('#');
-        if (hashIndex !== -1) {
-          const hash = url.substring(hashIndex + 1);
-          const params = new URLSearchParams(hash);
-
-          const accessToken = params.get('access_token');
-          const refreshToken = params.get('refresh_token');
-
-          if (accessToken) {
-            const { error: sessionError } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken || '',
-            });
-
-            if (sessionError) throw sessionError;
-          }
-        }
-      }
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      Alert.alert('OAuth Error', msg);
       throw error;
     }
   }, []);
@@ -181,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: redirectUri,
+          emailRedirectTo: 'nabajk://auth/callback',
         },
       });
 
@@ -194,10 +167,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     try {
+      // Sign out from Google
+      try {
+        await GoogleSignin.signOut();
+      } catch (e) {
+        // Ignore if not signed in with Google
+      }
+
+      // Sign out from Supabase
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
 
-      // Reset push permission state on sign out
       await AsyncStorage.removeItem(KEYS.PUSH_PERMISSION_ASKED);
       await AsyncStorage.removeItem(KEYS.PUSH_PERMISSION_STATUS);
       setPushPermissionAsked(false);
@@ -215,7 +195,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPushPermissionStatus(status);
   }, []);
 
-  // Memoize context value to prevent unnecessary re-renders
   const value = useMemo(
     () => ({
       user,

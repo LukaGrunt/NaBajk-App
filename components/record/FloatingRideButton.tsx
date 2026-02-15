@@ -15,6 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Colors from '@/constants/Colors';
 import { useRideRecorder } from '@/lib/rideRecorder';
+import { AnimatedRing } from './AnimatedRing';
 
 /**
  * "The Beacon" — Floating Action Button for starting/managing rides
@@ -168,6 +169,9 @@ export function FloatingRideButton() {
           animatedGlowStyle,
         ]}
       />
+
+      {/* Animated ring trail - positioned outside buttonWrapper to avoid overflow:hidden clipping */}
+      {!isRecording && <AnimatedRing size={64} />}
 
       {/* Main button */}
       <Animated.View style={[styles.buttonWrapper, animatedButtonStyle]}>

@@ -6,6 +6,8 @@ interface SupabaseGroupRideRow {
   id: string;
   title: string;
   region: string;
+  ride_date: string;
+  ride_time: string;
   starts_at: string;
   meeting_point: string;
   meeting_coordinates: { lat: number; lng: number } | null;
@@ -100,11 +102,17 @@ export async function getGroupRide(id: string): Promise<GroupRide | null> {
 export async function createGroupRide(
   ride: Omit<GroupRide, 'id' | 'createdAt'>
 ): Promise<GroupRide> {
+  // Extract date and time for separate columns
+  const rideDate = ride.startsAt.split('T')[0]; // YYYY-MM-DD
+  const rideTime = ride.startsAt.split('T')[1].substring(0, 5); // HH:MM
+
   const { data, error } = await supabase
     .from('group_rides')
     .insert({
       title: ride.title,
       region: ride.region,
+      ride_date: rideDate,
+      ride_time: rideTime,
       starts_at: ride.startsAt,
       meeting_point: ride.meetingPoint,
       meeting_coordinates: ride.meetingCoordinates,

@@ -21,12 +21,13 @@ export interface RecordedPoint {
 }
 
 export interface RecordingState {
-  status:         'idle' | 'recording' | 'stopped';
+  status:         'idle' | 'recording' | 'stopped' | 'error';
   elapsedSeconds: number;
   distanceMeters: number;
   pointsCount:    number;
   gpsStatus:      'waiting' | 'good' | 'ok' | 'poor';
   stoppedReason?: 'user' | 'background';
+  errorMessage?:  string;
 }
 
 type Listener = (state: RecordingState) => void;
@@ -102,39 +103,54 @@ export async function startRecording(): Promise<void> {
   }, 1000);
 
   // GPS watcher — balanced accuracy, ~4 s interval, 15 m distance threshold
-  locationWatcher = await Location.watchPositionAsync(
-    { accuracy: Location.Accuracy.Balanced, timeInterval: 4000, distanceInterval: 15 },
-    (loc) => {
-      if (uiState.status !== 'recording') return;
+  try {
+    locationWatcher = await Location.watchPositionAsync(
+      { accuracy: Location.Accuracy.Balanced, timeInterval: 4000, distanceInterval: 15 },
+      (loc) => {
+        if (uiState.status !== 'recording') return;
 
-      const point: RecordedPoint = {
-        lat:       loc.coords.latitude,
-        lng:       loc.coords.longitude,
-        alt:       loc.coords.altitude ?? undefined,
-        timestamp: loc.timestamp,
-        accuracy:  loc.coords.accuracy ?? 999,
-      };
+        const point: RecordedPoint = {
+          lat:       loc.coords.latitude,
+          lng:       loc.coords.longitude,
+          alt:       loc.coords.altitude ?? undefined,
+          timestamp: loc.timestamp,
+          accuracy:  loc.coords.accuracy ?? 999,
+        };
 
-      const gps: RecordingState['gpsStatus'] =
-        point.accuracy <= 5  ? 'good' :
-        point.accuracy <= 20 ? 'ok'   : 'poor';
+        const gps: RecordingState['gpsStatus'] =
+          point.accuracy <= 5  ? 'good' :
+          point.accuracy <= 20 ? 'ok'   : 'poor';
 
-      if (accept(point)) {
-        const last  = rawPoints[rawPoints.length - 1];
-        const added = last ? haversine(last.lat, last.lng, point.lat, point.lng) : 0;
-        rawPoints.push(point);
-        uiState = { ...uiState, gpsStatus: gps, pointsCount: rawPoints.length, distanceMeters: uiState.distanceMeters + added };
-      } else {
-        uiState = { ...uiState, gpsStatus: gps };
-      }
-      notify();
-    },
-  );
+        if (accept(point)) {
+          const last  = rawPoints[rawPoints.length - 1];
+          const added = last ? haversine(last.lat, last.lng, point.lat, point.lng) : 0;
+          rawPoints.push(point);
+          uiState = { ...uiState, gpsStatus: gps, pointsCount: rawPoints.length, distanceMeters: uiState.distanceMeters + added };
+        } else {
+          uiState = { ...uiState, gpsStatus: gps };
+        }
+        notify();
+      },
+    );
 
-  // Guard: if stop() was called while we awaited the watcher, clean up immediately
-  if (uiState.status !== 'recording' && locationWatcher !== null) {
-    locationWatcher.remove();
-    locationWatcher = null;
+    // Guard: if stop() was called while we awaited the watcher, clean up immediately
+    if (uiState.status !== 'recording' && locationWatcher !== null) {
+      locationWatcher.remove();
+      locationWatcher = null;
+    }
+  } catch (error) {
+    console.error('Failed to start GPS:', error);
+    if (tickTimer !== null) {
+      clearInterval(tickTimer);
+      tickTimer = null;
+    }
+    uiState = {
+      ...uiState,
+      status: 'error',
+      errorMessage: error instanceof Error ? error.message : 'Could not access GPS',
+    };
+    notify();
+    return;
   }
 
   // Stop recording when the app leaves the foreground
@@ -175,7 +191,7 @@ export function subscribe(listener: Listener): () => void {
 export function reset(): void {
   if (uiState.status === 'recording') stopRecording('user');
   rawPoints = [];
-  uiState   = { status: 'idle', elapsedSeconds: 0, distanceMeters: 0, pointsCount: 0, gpsStatus: 'waiting' };
+  uiState   = { status: 'idle', elapsedSeconds: 0, distanceMeters: 0, pointsCount: 0, gpsStatus: 'waiting', errorMessage: undefined };
   notify();
 }
 

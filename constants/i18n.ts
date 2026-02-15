@@ -31,6 +31,8 @@ export const strings = {
     viewPrivacy: 'Poglej politiko zasebnosti',
     termsOfService: 'Pogoji uporabe',
     viewTerms: 'Poglej pogoje uporabe',
+    displayName: 'Prikazno ime',
+    setNickname: 'Nastavi vzdevek',
 
     // Home Screen
     appName: 'NaBajk',
@@ -70,9 +72,16 @@ export const strings = {
     timeDesc4hPlus: 'Dolge poti nad 3 ure',
 
     // Quick picks & Partners
-    quickPicks: 'Hitri izbiri',
+    quickPicks: 'Hitri izbori',
     partners: 'Partnerji',
     partnerTag: 'Partner',
+
+    // Weather
+    weatherNow: 'Zdaj',
+
+    // Random route picker
+    randomPickingRoute: 'Izbiram pot...',
+    randomTapToView: 'Tapni za ogled',
 
     // Regions
     gorenjska: 'Gorenjska',
@@ -244,6 +253,8 @@ export const strings = {
     viewPrivacy: 'View our privacy policy',
     termsOfService: 'Terms of Service',
     viewTerms: 'View terms and conditions',
+    displayName: 'Display name',
+    setNickname: 'Set nickname',
 
     // Home Screen
     appName: 'NaBajk',
@@ -286,6 +297,13 @@ export const strings = {
     quickPicks: 'Quick picks',
     partners: 'Partners',
     partnerTag: 'Partner',
+
+    // Weather
+    weatherNow: 'Now',
+
+    // Random route picker
+    randomPickingRoute: 'Picking your route...',
+    randomTapToView: 'Tap to view',
 
     // Regions
     gorenjska: 'Gorenjska',

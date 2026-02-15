@@ -68,12 +68,20 @@ export default function GroupRideDetailScreen() {
     if (!groupRide) return;
 
     const { lat, lng } = groupRide.meetingCoordinates;
+    const hasValidCoords = lat !== 0 || lng !== 0;
 
     let url: string;
-    if (Platform.OS === 'ios') {
-      url = `maps://maps.apple.com/?q=${lat},${lng}`;
+    if (hasValidCoords) {
+      // Use coordinates
+      if (Platform.OS === 'ios') {
+        url = `maps://maps.apple.com/?q=${lat},${lng}`;
+      } else {
+        url = `geo:${lat},${lng}?q=${lat},${lng}`;
+      }
     } else {
-      url = `geo:${lat},${lng}?q=${lat},${lng}`;
+      // Search for meeting point text
+      const query = encodeURIComponent(groupRide.meetingPoint);
+      url = `https://www.google.com/maps/search/?api=1&query=${query}`;
     }
 
     Linking.canOpenURL(url)
@@ -81,8 +89,9 @@ export default function GroupRideDetailScreen() {
         if (supported) {
           return Linking.openURL(url);
         } else {
-          // Fallback to web
-          return Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`);
+          // Fallback to web search
+          const query = encodeURIComponent(groupRide.meetingPoint);
+          return Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`);
         }
       })
       .catch((err) => console.error('Failed to open maps:', err));
@@ -159,17 +168,15 @@ export default function GroupRideDetailScreen() {
             </View>
           </View>
 
-          {/* Open in Maps Button - only show if coordinates provided */}
-          {groupRide.meetingCoordinates.lat !== 0 && groupRide.meetingCoordinates.lng !== 0 && (
-            <TouchableOpacity
-              style={styles.mapsButton}
-              onPress={handleOpenInMaps}
-              activeOpacity={0.7}
-            >
-              <FontAwesome name="map" size={16} color={Colors.textPrimary} />
-              <Text style={styles.mapsButtonText}>{t(language, 'openInMaps')}</Text>
-            </TouchableOpacity>
-          )}
+          {/* Open in Maps Button - always show, will search by text if no coords */}
+          <TouchableOpacity
+            style={styles.mapsButton}
+            onPress={handleOpenInMaps}
+            activeOpacity={0.7}
+          >
+            <FontAwesome name="map" size={16} color={Colors.textPrimary} />
+            <Text style={styles.mapsButtonText}>{t(language, 'openInMaps')}</Text>
+          </TouchableOpacity>
 
           {/* Notes */}
           {groupRide.notes && (

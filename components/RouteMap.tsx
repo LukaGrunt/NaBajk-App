@@ -1,9 +1,12 @@
-import React, { useState, useMemo } from 'react';
-import { StyleSheet, View, Text, LayoutChangeEvent } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
+import React, { useMemo } from 'react';
+import { StyleSheet, View, Text } from 'react-native';
+import MapLibreGL from '@maplibre/maplibre-react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { decodePolyline } from '@/utils/polyline';
 import Colors from '@/constants/Colors';
-import { decodePolyline, coordinatesToSVGPath, getPolylineBounds } from '@/utils/polyline';
+
+// Configure MapLibre (no access token needed for free tiles)
+MapLibreGL.setAccessToken(null);
 
 interface RouteMapProps {
   polyline: string;
@@ -11,42 +14,70 @@ interface RouteMapProps {
 }
 
 export function RouteMap({ polyline, height = 300 }: RouteMapProps) {
-  const [containerWidth, setContainerWidth] = useState(0);
-
-  const handleLayout = (e: LayoutChangeEvent) => {
-    setContainerWidth(e.nativeEvent.layout.width);
-  };
-
-  const mapData = useMemo(() => {
-    if (!polyline || containerWidth === 0) return null;
+  const routeGeoJSON = useMemo(() => {
+    if (!polyline) return null;
 
     const decoded = decodePolyline(polyline);
     if (decoded.length < 2) return null;
 
-    const padding = 28;
-    const path = coordinatesToSVGPath(decoded, containerWidth, height, padding);
-
-    // Compute start & end markers in the same SVG coordinate space
-    const bounds  = getPolylineBounds(decoded);
-    const availW  = containerWidth - 2 * padding;
-    const availH  = height - 2 * padding;
-    const latRange = bounds.maxLat - bounds.minLat || 1e-5;
-    const lngRange = bounds.maxLng - bounds.minLng || 1e-5;
-
-    const toSVG = (coord: { lat: number; lng: number }) => ({
-      x: ((coord.lng - bounds.minLng) / lngRange) * availW + padding,
-      y: ((bounds.maxLat - coord.lat) / latRange) * availH + padding,
-    });
+    // Convert to [lng, lat] format (GeoJSON format)
+    const coordinates = decoded.map(coord => [coord.lng, coord.lat]);
 
     return {
-      path,
-      start: toSVG(decoded[0]),
-      end:   toSVG(decoded[decoded.length - 1]),
+      type: 'Feature' as const,
+      geometry: {
+        type: 'LineString' as const,
+        coordinates,
+      },
+      properties: {},
     };
-  }, [polyline, containerWidth, height]);
+  }, [polyline]);
 
-  /* ── empty state ──────────────────────────────────── */
-  if (!polyline) {
+  const bounds = useMemo(() => {
+    if (!routeGeoJSON) return null;
+
+    const coords = routeGeoJSON.geometry.coordinates;
+    const lngs = coords.map((c) => c[0]);
+    const lats = coords.map((c) => c[1]);
+
+    return {
+      ne: [Math.max(...lngs), Math.max(...lats)] as [number, number],
+      sw: [Math.min(...lngs), Math.min(...lats)] as [number, number],
+      paddingTop: 50,
+      paddingBottom: 50,
+      paddingLeft: 50,
+      paddingRight: 50,
+    };
+  }, [routeGeoJSON]);
+
+  // Start and end markers
+  const startPoint = useMemo(() => {
+    if (!routeGeoJSON) return null;
+    const coords = routeGeoJSON.geometry.coordinates;
+    return {
+      type: 'Feature' as const,
+      geometry: {
+        type: 'Point' as const,
+        coordinates: coords[0],
+      },
+      properties: { type: 'start' },
+    };
+  }, [routeGeoJSON]);
+
+  const endPoint = useMemo(() => {
+    if (!routeGeoJSON) return null;
+    const coords = routeGeoJSON.geometry.coordinates;
+    return {
+      type: 'Feature' as const,
+      geometry: {
+        type: 'Point' as const,
+        coordinates: coords[coords.length - 1],
+      },
+      properties: { type: 'end' },
+    };
+  }, [routeGeoJSON]);
+
+  if (!polyline || !routeGeoJSON) {
     return (
       <View style={[styles.container, { height }]}>
         <View style={styles.emptyContainer}>
@@ -57,65 +88,107 @@ export function RouteMap({ polyline, height = 300 }: RouteMapProps) {
     );
   }
 
-  /* ── SVG route preview ────────────────────────────── */
   return (
-    <View style={[styles.container, { height }]} onLayout={handleLayout}>
-      {mapData ? (
-        <Svg width={containerWidth} height={height} style={styles.svg}>
-          {/* Glow layer — wide, transparent stroke behind the main line */}
-          <Path
-            d={mapData.path}
-            stroke={Colors.brandGreen}
-            strokeWidth={10}
-            strokeOpacity={0.12}
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+    <View style={[styles.container, { height }]}>
+      <MapLibreGL.MapView
+        style={styles.map}
+        mapStyle="https://tiles.openfreemap.org/styles/liberty"
+        logoEnabled={false}
+        attributionEnabled={false}
+      >
+        <MapLibreGL.Camera
+          bounds={bounds!}
+          animationDuration={0}
+        />
+
+        {/* Route line with glow effect */}
+        <MapLibreGL.ShapeSource id="routeGlow" shape={routeGeoJSON}>
+          <MapLibreGL.LineLayer
+            id="routeLineGlow"
+            style={{
+              lineColor: Colors.brandGreen,
+              lineWidth: 10,
+              lineOpacity: 0.15,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }}
           />
+        </MapLibreGL.ShapeSource>
 
-          {/* Main route line */}
-          <Path
-            d={mapData.path}
-            stroke={Colors.brandGreen}
-            strokeWidth={3}
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        <MapLibreGL.ShapeSource id="routeSource" shape={routeGeoJSON}>
+          <MapLibreGL.LineLayer
+            id="routeLine"
+            style={{
+              lineColor: Colors.brandGreen,
+              lineWidth: 4,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }}
           />
+        </MapLibreGL.ShapeSource>
 
-          {/* Start marker — green ring */}
-          <Circle cx={mapData.start.x} cy={mapData.start.y} r={7}  fill={Colors.brandGreen} />
-          <Circle cx={mapData.start.x} cy={mapData.start.y} r={3.5} fill={Colors.cardSurface} />
+        {/* Start marker - green */}
+        {startPoint && (
+          <MapLibreGL.ShapeSource id="startPoint" shape={startPoint}>
+            <MapLibreGL.CircleLayer
+              id="startCircleOuter"
+              style={{
+                circleRadius: 8,
+                circleColor: Colors.brandGreen,
+              }}
+            />
+            <MapLibreGL.CircleLayer
+              id="startCircleInner"
+              style={{
+                circleRadius: 4,
+                circleColor: '#FFFFFF',
+              }}
+            />
+          </MapLibreGL.ShapeSource>
+        )}
 
-          {/* End marker — warm orange ring */}
-          <Circle cx={mapData.end.x} cy={mapData.end.y} r={7}  fill="#FB923C" />
-          <Circle cx={mapData.end.x} cy={mapData.end.y} r={3.5} fill={Colors.cardSurface} />
-        </Svg>
-      ) : null}
+        {/* End marker - orange */}
+        {endPoint && (
+          <MapLibreGL.ShapeSource id="endPoint" shape={endPoint}>
+            <MapLibreGL.CircleLayer
+              id="endCircleOuter"
+              style={{
+                circleRadius: 8,
+                circleColor: '#FB923C',
+              }}
+            />
+            <MapLibreGL.CircleLayer
+              id="endCircleInner"
+              style={{
+                circleRadius: 4,
+                circleColor: '#FFFFFF',
+              }}
+            />
+          </MapLibreGL.ShapeSource>
+        )}
+      </MapLibreGL.MapView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    width:            '100%',
-    borderRadius:     16,
-    overflow:         'hidden',
-    backgroundColor:  Colors.cardSurface,
-  },
-  svg: {
+    width: '100%',
+    borderRadius: 16,
+    overflow: 'hidden',
     backgroundColor: Colors.cardSurface,
   },
-
-  /* empty */
+  map: {
+    flex: 1,
+  },
   emptyContainer: {
-    flex:            1,
-    justifyContent:  'center',
-    alignItems:      'center',
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   emptyText: {
-    fontSize:  14,
-    color:     Colors.textMuted,
+    fontSize: 14,
+    color: Colors.textMuted,
     marginTop: 10,
   },
 });

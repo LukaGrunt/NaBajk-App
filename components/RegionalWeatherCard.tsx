@@ -1,104 +1,247 @@
 /**
  * RegionalWeatherCard Component
- * A minimal weather status bar for the Routes screen
+ * A weather status bar for the Routes screen with animated icons
  */
 
-import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-} from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  withSequence,
+  Easing,
+  FadeIn,
+} from 'react-native-reanimated';
+import Svg, { Circle, Path, G } from 'react-native-svg';
 import Colors from '@/constants/Colors';
+import { getWeatherForecast, ForecastPoint, WeatherCondition } from '@/lib/weatherService';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { t } from '@/constants/i18n';
 
-// Weather condition types
-type WeatherCondition = 'sunny' | 'cloudy' | 'partly-cloudy' | 'rainy' | 'stormy';
+// Animated Sun Icon
+function AnimatedSun({ size = 28 }: { size?: number }) {
+  const rotation = useSharedValue(0);
 
-// Proper type for FontAwesome icon names
-type FAIconName = React.ComponentProps<typeof FontAwesome>['name'];
+  useEffect(() => {
+    rotation.value = withRepeat(
+      withTiming(360, { duration: 10000, easing: Easing.linear }),
+      -1,
+      false
+    );
+  }, []);
 
-type ForecastPoint = {
-  time: string;
-  tempC: number;
-  precipMm: number;
-  windKmh: number;
-  windArrow: string;
-  condition: WeatherCondition;
-};
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.value}deg` }],
+  }));
 
-// Map condition to FontAwesome icon
-function getWeatherIcon(condition: WeatherCondition): { name: FAIconName; color: string } {
+  return (
+    <Animated.View style={animatedStyle}>
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Circle cx="12" cy="12" r="5" fill="#FFD93D" />
+        {/* Sun rays */}
+        {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => (
+          <Path
+            key={angle}
+            d={`M12 ${2} L12 ${5}`}
+            stroke="#FFD93D"
+            strokeWidth={2}
+            strokeLinecap="round"
+            transform={`rotate(${angle} 12 12)`}
+          />
+        ))}
+      </Svg>
+    </Animated.View>
+  );
+}
+
+// Animated Cloud Icon
+function AnimatedCloud({ size = 28 }: { size?: number }) {
+  const translateX = useSharedValue(0);
+
+  useEffect(() => {
+    translateX.value = withRepeat(
+      withSequence(
+        withTiming(3, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(-3, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Path
+          d="M19.35 10.04A7.49 7.49 0 0012 4C9.11 4 6.6 5.64 5.35 8.04A6.004 6.004 0 000 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"
+          fill={Colors.textSecondary}
+          transform="translate(0, 2)"
+        />
+      </Svg>
+    </Animated.View>
+  );
+}
+
+// Animated Rain Icon
+function AnimatedRain({ size = 28 }: { size?: number }) {
+  const drop1Y = useSharedValue(0);
+  const drop2Y = useSharedValue(0);
+  const drop3Y = useSharedValue(0);
+
+  useEffect(() => {
+    drop1Y.value = withRepeat(
+      withTiming(4, { duration: 600, easing: Easing.linear }),
+      -1,
+      false
+    );
+    setTimeout(() => {
+      drop2Y.value = withRepeat(
+        withTiming(4, { duration: 600, easing: Easing.linear }),
+        -1,
+        false
+      );
+    }, 200);
+    setTimeout(() => {
+      drop3Y.value = withRepeat(
+        withTiming(4, { duration: 600, easing: Easing.linear }),
+        -1,
+        false
+      );
+    }, 400);
+  }, []);
+
+  const drop1Style = useAnimatedStyle(() => ({
+    transform: [{ translateY: drop1Y.value }],
+    opacity: 1 - drop1Y.value / 5,
+  }));
+
+  const drop2Style = useAnimatedStyle(() => ({
+    transform: [{ translateY: drop2Y.value }],
+    opacity: 1 - drop2Y.value / 5,
+  }));
+
+  const drop3Style = useAnimatedStyle(() => ({
+    transform: [{ translateY: drop3Y.value }],
+    opacity: 1 - drop3Y.value / 5,
+  }));
+
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      {/* Cloud */}
+      <Svg width={size * 0.9} height={size * 0.5} viewBox="0 0 24 12" style={{ position: 'absolute', top: 0 }}>
+        <Path
+          d="M19.35 5.04A5.5 5.5 0 0012 0C9.11 0 6.6 1.14 5.35 3.04A4.5 4.5 0 001 8c0 2.21 1.79 4 4 4h13c2.21 0 4-1.79 4-4 0-2.14-1.68-3.88-3.65-3.96z"
+          fill={Colors.textSecondary}
+        />
+      </Svg>
+      {/* Rain drops */}
+      <View style={{ flexDirection: 'row', position: 'absolute', bottom: 2, gap: 4 }}>
+        <Animated.View style={drop1Style}>
+          <Svg width={4} height={8} viewBox="0 0 4 8">
+            <Path d="M2 0 L4 6 Q2 8 0 6 Z" fill="#6CB4EE" />
+          </Svg>
+        </Animated.View>
+        <Animated.View style={drop2Style}>
+          <Svg width={4} height={8} viewBox="0 0 4 8">
+            <Path d="M2 0 L4 6 Q2 8 0 6 Z" fill="#6CB4EE" />
+          </Svg>
+        </Animated.View>
+        <Animated.View style={drop3Style}>
+          <Svg width={4} height={8} viewBox="0 0 4 8">
+            <Path d="M2 0 L4 6 Q2 8 0 6 Z" fill="#6CB4EE" />
+          </Svg>
+        </Animated.View>
+      </View>
+    </View>
+  );
+}
+
+// Get animated weather icon component
+function WeatherIcon({ condition, size = 28 }: { condition: WeatherCondition; size?: number }) {
   switch (condition) {
     case 'sunny':
-      return { name: 'sun-o', color: '#FFD93D' };
+      return <AnimatedSun size={size} />;
     case 'cloudy':
-      return { name: 'cloud', color: Colors.textSecondary };
     case 'partly-cloudy':
-      return { name: 'cloud', color: Colors.textSecondary };
+      return <AnimatedCloud size={size} />;
     case 'rainy':
-      return { name: 'tint', color: '#6CB4EE' };
     case 'stormy':
-      return { name: 'bolt', color: '#FFD93D' };
+      return <AnimatedRain size={size} />;
     default:
-      return { name: 'cloud', color: Colors.textSecondary };
+      return <AnimatedCloud size={size} />;
   }
 }
 
-// Mock data
-const MOCK_FORECAST: ForecastPoint[] = [
-  { time: '12:00', tempC: 7, precipMm: 0.0, windKmh: 18, windArrow: '↗', condition: 'sunny' },
-  { time: '15:00', tempC: 9, precipMm: 0.4, windKmh: 22, windArrow: '↗', condition: 'partly-cloudy' },
-  { time: '18:00', tempC: 6, precipMm: 1.2, windKmh: 16, windArrow: '→', condition: 'rainy' },
-];
-
 export function RegionalWeatherCard() {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const { language } = useLanguage();
+  const [forecast, setForecast] = useState<ForecastPoint[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
+    loadWeather();
   }, []);
 
+  const loadWeather = async () => {
+    try {
+      const data = await getWeatherForecast('gorenjska');
+      setForecast(data);
+    } catch (error) {
+      console.warn('Failed to load weather:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="small" color={Colors.textMuted} />
+      </View>
+    );
+  }
+
+  if (forecast.length === 0) {
+    return null;
+  }
+
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+    <Animated.View entering={FadeIn.duration(300)} style={styles.container}>
       <View style={styles.strip}>
-        {MOCK_FORECAST.map((forecast, index) => {
-          const icon = getWeatherIcon(forecast.condition);
+        {forecast.map((item, index) => {
           const isActive = index === 0;
 
           return (
-            <React.Fragment key={forecast.time}>
+            <React.Fragment key={item.time}>
               <View style={[styles.column, isActive && styles.columnActive]}>
                 {/* Time */}
-                <Text style={styles.time}>{forecast.time}</Text>
+                <Text style={styles.time}>{item.isNow ? t(language, 'weatherNow') : item.time}</Text>
 
-                {/* Icon + Temp row */}
+                {/* Icon + Temperature in one row */}
                 <View style={styles.iconTempRow}>
-                  <FontAwesome
-                    name={icon.name}
-                    size={20}
-                    color={icon.color}
-                    style={styles.icon}
-                  />
-                  <Text style={styles.temp}>{forecast.tempC}°</Text>
+                  <WeatherIcon condition={item.condition} size={24} />
+                  <Text style={styles.temp}>{item.tempC}°</Text>
                 </View>
 
                 {/* Precip + Wind combined */}
                 <Text style={styles.details}>
-                  {forecast.precipMm} mm · {forecast.windArrow} {forecast.windKmh}
+                  {item.precipMm}mm · {item.windArrow}{item.windKmh}
                 </Text>
               </View>
 
               {/* Divider (not after last item) */}
-              {index < MOCK_FORECAST.length - 1 && <View style={styles.divider} />}
+              {index < forecast.length - 1 && <View style={styles.divider} />}
             </React.Fragment>
           );
         })}
+
+        {/* MET Norway Attribution - inside box */}
+        <Text style={styles.attribution}>MET Norway</Text>
       </View>
     </Animated.View>
   );
@@ -106,9 +249,13 @@ export function RegionalWeatherCard() {
 
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  loadingContainer: {
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   strip: {
     flexDirection: 'row',
@@ -116,14 +263,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    position: 'relative',
   },
   column: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: 4,
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
     borderRadius: 10,
   },
   columnActive: {
@@ -132,30 +280,37 @@ const styles = StyleSheet.create({
   divider: {
     width: 1,
     backgroundColor: Colors.border,
-    marginHorizontal: 4,
+    marginHorizontal: 2,
   },
   time: {
-    fontSize: 14,
-    fontWeight: '400',
+    fontSize: 12,
+    fontWeight: '500',
     color: Colors.textSecondary,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   iconTempRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
-  },
-  icon: {
-    marginRight: 4,
+    gap: 6,
+    marginBottom: 2,
   },
   temp: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: Colors.textPrimary,
   },
   details: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '400',
-    color: Colors.textSecondary,
+    color: Colors.textMuted,
+  },
+  attribution: {
+    position: 'absolute',
+    bottom: 4,
+    right: 8,
+    fontSize: 8,
+    fontWeight: '400',
+    color: Colors.textMuted,
+    opacity: 0.6,
   },
 });

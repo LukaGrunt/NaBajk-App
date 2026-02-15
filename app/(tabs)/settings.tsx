@@ -15,11 +15,13 @@ import { RiderLevel, t } from '@/constants/i18n';
 import { getRiderLevel, setRiderLevel } from '@/utils/localSettings';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserProfile } from '@/contexts/UserProfileContext';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { language, setLanguage } = useLanguage();
   const { user, signOut } = useAuth();
+  const { userProfile, setUserName } = useUserProfile();
   const [riderLevel, setRiderLevelState] = useState<RiderLevel>('intermediate');
 
   useEffect(() => {
@@ -92,6 +94,26 @@ export default function SettingsScreen() {
     );
   };
 
+  const handleEditNickname = () => {
+    Alert.prompt(
+      t(language, 'displayName'),
+      language === 'sl' ? 'Vnesi svoje prikazno ime' : 'Enter your display name',
+      [
+        { text: t(language, 'cancel') || 'Cancel', style: 'cancel' },
+        {
+          text: 'OK',
+          onPress: (name?: string) => {
+            if (name && name.trim()) {
+              setUserName(name.trim());
+            }
+          },
+        },
+      ],
+      'plain-text',
+      userProfile?.name || ''
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -134,6 +156,24 @@ export default function SettingsScreen() {
               </View>
             </View>
           </View>
+
+          {/* Nickname/Display Name */}
+          <TouchableOpacity
+            style={styles.nicknameCard}
+            onPress={handleEditNickname}
+            activeOpacity={0.7}
+          >
+            <View style={styles.nicknameIcon}>
+              <FontAwesome name="id-badge" size={20} color={Colors.brandGreen} />
+            </View>
+            <View style={styles.nicknameContent}>
+              <Text style={styles.nicknameLabel}>{t(language, 'displayName')}</Text>
+              <Text style={styles.nicknameValue}>
+                {userProfile?.name || t(language, 'setNickname')}
+              </Text>
+            </View>
+            <FontAwesome name="chevron-right" size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.signOutButton}
@@ -439,7 +479,7 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   bottomSpacer: {
-    height: 40,
+    height: 100, // Space for floating tab bar + safe area
   },
   accountCard: {
     backgroundColor: Colors.cardSurface,
@@ -481,5 +521,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#EF4444',
+  },
+  nicknameCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardSurface,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 12,
+  },
+  nicknameIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0, 188, 124, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  nicknameContent: {
+    flex: 1,
+  },
+  nicknameLabel: {
+    fontSize: 13,
+    color: Colors.textMuted,
+    marginBottom: 4,
+  },
+  nicknameValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textPrimary,
   },
 });

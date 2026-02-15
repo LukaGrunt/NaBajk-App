@@ -9,7 +9,7 @@ import {
   ListRenderItem,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { listGroupRides, getRSVPCounts } from '@/repositories/groupRidesRepo';
@@ -38,10 +38,13 @@ export default function GroupRidesScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notifyRegions, setNotifyRegions] = useState<Region[]>([]);
 
-  useEffect(() => {
-    loadGroupRides();
-    loadNotificationPrefs();
-  }, []);
+  // Refresh data when screen comes into focus (e.g., after creating a ride)
+  useFocusEffect(
+    useCallback(() => {
+      loadGroupRides();
+      loadNotificationPrefs();
+    }, [])
+  );
 
   const loadNotificationPrefs = async () => {
     try {
@@ -382,7 +385,7 @@ const styles = StyleSheet.create({
     color: Colors.background,
   },
   bottomSpacer: {
-    height: 20,
+    height: 100, // Space for floating tab bar + safe area
   },
   // Notification preferences styles
   notificationSection: {
