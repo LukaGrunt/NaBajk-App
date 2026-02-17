@@ -8,9 +8,10 @@ import { User as SupabaseUser } from '@supabase/supabase-js';
 
 // Configure Google Sign-In
 GoogleSignin.configure({
-  // Web client ID from Google Cloud Console
+  // Web client ID from Google Cloud Console (for idToken)
   webClientId: '968402921869-0sot9ovufftpjqb9orjvsfnn8vnvspd2.apps.googleusercontent.com',
-  iosClientId: '968402921869-0sot9ovufftpjqb9orjvsfnn8vnvspd2.apps.googleusercontent.com',
+  // iOS client ID (iOS type, bundle ID: com.nabajk.app)
+  iosClientId: '968402921869-6g035oclj9ipjno4i77aqcoamqdrg1am.apps.googleusercontent.com',
 });
 
 const KEYS = {

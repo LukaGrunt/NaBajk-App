@@ -18,12 +18,7 @@ export const supabase = createClient(
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false,
+      flowType: 'implicit',
     },
   }
 );
-
-// TODO: Wire this client into AuthContext:
-// - Replace mock signInWithGoogle with: supabase.auth.signInWithOAuth({ provider: 'google' })
-// - Replace mock signInWithEmail with: supabase.auth.signInWithOtp({ email })
-// - Replace mock signOut with: supabase.auth.signOut()
-// - Listen to auth state changes: supabase.auth.onAuthStateChange((event, session) => { ... })

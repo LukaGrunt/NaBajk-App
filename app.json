@@ -48,10 +48,14 @@
     "plugins": [
       "expo-router",
       "expo-font",
+      "expo-secure-store",
+      "expo-sqlite",
       "@react-native-community/datetimepicker",
       "expo-web-browser",
       "@maplibre/maplibre-react-native",
-      "@react-native-google-signin/google-signin"
+      ["@react-native-google-signin/google-signin", {
+        "iosUrlScheme": "com.googleusercontent.apps.968402921869-6g035oclj9ipjno4i77aqcoamqdrg1am"
+      }]
     ],
     "experiments": {
       "typedRoutes": true

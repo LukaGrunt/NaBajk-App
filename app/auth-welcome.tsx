@@ -90,7 +90,7 @@ export default function AuthWelcomeScreen() {
         {__DEV__ && (
           <TouchableOpacity
             style={styles.skipButton}
-            onPress={handleGoogleSignIn}
+            onPress={() => router.replace('/(tabs)')}
             activeOpacity={0.7}
           >
             <Text style={styles.skipText}>Skip (Dev)</Text>
