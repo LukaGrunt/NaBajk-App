@@ -12,7 +12,7 @@ export default function AuthCallback() {
       // AuthContext has already processed the deep link URL and set the session.
       // Redirect based on whether auth succeeded.
       if (user) {
-        router.replace('/(tabs)');
+        router.replace('/');
       } else {
         router.replace('/auth-welcome');
       }

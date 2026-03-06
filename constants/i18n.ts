@@ -84,9 +84,13 @@ export const strings = {
     randomTapToView: 'Tapni za ogled',
 
     // Regions
+    all: 'Vse',
     gorenjska: 'Gorenjska',
-    dolenjska: 'Dolenjska (kmalu)',
-    stajerska: 'Štajerska (kmalu)',
+    dolenjska: 'Dolenjska',
+    stajerska: 'Štajerska',
+    primorska: 'Primorska',
+    prekmurje: 'Prekmurje',
+    osrednjaSlovenija: 'Osrednja Slovenija',
 
     // Route Details
     routeOverview: 'Pregled poti',
@@ -148,6 +152,9 @@ export const strings = {
     recordBackgroundWarning: 'Snemanje je ustavljeno, ker NaBajk za zdaj ne snemal v ozadju.',
     recordBackgroundSave: 'Shrani vožnjo',
     recordBackgroundDiscard: 'Zavrži',
+    recordGpsGood: 'ODLIČEN',
+    recordGpsOk: 'V REDU',
+    recordGpsPoor: 'SLAB',
 
     // Summary
     summaryTitle: 'Povzetek vožnje',
@@ -163,6 +170,11 @@ export const strings = {
 
     // Share
     shareRecordedWith: 'Posneto z NaBajk',
+    shareStoryPreview: 'Predogled zgodbe',
+    shareReadyLabel: 'pripravljena za deljenje',
+    shareForward: 'Deli naprej...',
+    groupRideBadge: 'SKUPINSKA VOŽNJA',
+    joinNaBajk: 'Pridruži se na NaBajk',
 
     // Create Form
     rideTitle: 'Naziv vožnje',
@@ -223,6 +235,101 @@ export const strings = {
     // Search
     searchRoutes: 'Išči poti…',
     optional: '(neobvezno)',
+
+    // Legal screens
+    privacyPolicyTitle: 'Politika zasebnosti',
+    termsOfServiceTitle: 'Pogoji uporabe',
+    termsAcceptanceTitle: 'Pred nadaljevanjem',
+    termsCheckboxTerms: 'Strinjam se s Pogoji uporabe',
+    termsCheckboxPrivacy: 'Strinjam se s Politiko zasebnosti',
+    termsContinue: 'Nadaljuj',
+
+    // Climbs (Vzponi)
+    climbsTitle: 'Vzponi',
+    climbsSubtitle: 'Vršič · Predel · Mangart · Ljubelj',
+    climbRecordTitle: 'Snemaš vzpon',
+    climbRecordBody: 'Snemaj samo vzpon — od dna do vrha.\n\nPrimer: Vršič (24 km, 1.200 m↑) — začneš pri Soči in snemaš do vrha pasov. Ko dosežeš vrh, ustavi snemanje.',
+    climbConfirmBtn: 'Začni vzpon',
+    navigateToStart: 'Navigiraj do začetka',
+    avgGradient: 'povp. naklon',
+
+    // Onboarding walkthrough
+    onboardFabTitle: 'Zeleni gumb',
+    onboardFabBody: 'Pritisni za snemanje vožnje, vzpona ali nalaganje GPX datoteke.',
+    onboardQuickTitle: 'Hitri izbori',
+    onboardQuickBody: 'Naključna pot, vzponi ali filtriraj po dolžini — vse na dosegu roke.',
+    onboardSearchTitle: 'Iskanje in regije',
+    onboardSearchBody: 'Išči poti po imenu ali filtriraj po svoji regiji.',
+    onboardTabsTitle: 'Navigacija',
+    onboardTabsBody: 'Med zavihki preklapljaj med potmi, tekmami, skupinskimi kolesarjenji in profilom.',
+    onboardSkip: 'Preskoči',
+    onboardNext: 'Naprej',
+    onboardStart: 'Začni',
+    showTutorial: 'Pokaži vodič',
+    showTutorialDesc: 'Znova si oglej uvodni vodič po aplikaciji',
+
+    // Generic
+    error: 'Napaka',
+
+    // Recording cockpit
+    recordBack: 'Nazaj',
+    recordConfirmStopTitle: 'Zaključi vožnjo?',
+    recordConfirmStopBody: 'Res želiš zaključiti vožnjo?',
+    recordConfirmStopBtn: 'Zaključi',
+    recordClimbBadge: '▲ Vzpon',
+    recordDurationLabel: 'Trajanje vožnje',
+    recordGpsSignalLabel: 'GPS Signal',
+    recordStopBtnText: 'Zaključi vožnjo',
+
+    // Ride Summary
+    summaryErrorMsg: 'Vožnje ni bilo mogoče shraniti. Poskusi znova.',
+    summaryDiscardTitle: 'Zavrži vožnjo?',
+    summaryDiscardBody: 'Podatki bodo trajno izbrisani.',
+    summaryDiscardBtn: 'Zavrži',
+    summarySavedTitle: 'Vožnja shranjena!',
+    summarySavedSubtitle: 'Deli svojo vožnjo…',
+    summaryHeaderTitle: 'Zaključi vožnjo',
+    summaryDurationLabel: 'Trajanje',
+    summaryClimbProfileLabel: '▲ Profil vzpona',
+    summaryRideNameLabel: 'Ime vožnje',
+    summaryTrafficLabel: 'Promet (neobvezno)',
+    summaryTrafficPlaceholder: 'Opiši prometne razmere...',
+    summaryRoadLabel: 'Kakovost ceste (neobvezno)',
+    summaryRoadPlaceholder: 'Opiši stanje ceste...',
+    summaryWhyLabel: 'Zakaj je dobra? (neobvezno)',
+    summaryWhyPlaceholder: 'Kaj naredi to vožnjo posebno...',
+    summarySaveBtn: 'Shrani vožnjo',
+    summaryDiscardRideBtn: 'Zavrži vožnjo',
+
+    // Story share sheet
+    shareYourRide: 'Tvoja vožnja',
+    shareReadyRatio: '9 : 16  ·  Pripravljeno za deljenje',
+    shareOnHeader: 'Deli na',
+    shareOnInstagram: 'Deli na Instagram',
+    shareElsewhere: 'Deli drugje',
+
+    // Climbs screen
+    noClimbs: 'Ni vzponov',
+
+    // Add race form
+    addRaceTitle: 'Dodaj tekmo',
+    addRaceNameLabel: 'Ime tekme *',
+    addRaceNamePlaceholder: 'npr. Franja BTC',
+    addRaceDateLabel: 'Datum * (LLLL-MM-DD)',
+    addRaceDatePlaceholder: 'npr. 2026-06-15',
+    addRaceRegionLabel: 'Regija (neobvezno)',
+    addRaceRegionPlaceholder: 'npr. Gorenjska',
+    addRaceWebsiteLabel: 'Spletna stran (neobvezno)',
+    addRaceSubmitBtn: 'Dodaj tekmo',
+    addRaceErrorName: 'Ime tekme je obvezno.',
+    addRaceErrorDate: 'Datum mora biti v obliki LLLL-MM-DD (npr. 2026-06-15).',
+    addRaceErrorSubmit: 'Tekme ni bilo mogoče dodati. Poskusi znova.',
+    addRaceCreateCardTitle: 'Predlagaj tekmo',
+    addRaceCreateCardDesc: 'Predlagaj amatersko dirko ali prireditev za koledar.',
+    addRaceTypeLabel: 'Vrsta tekme',
+    raceTypeCestna: 'Cestna',
+    raceTypeKronometer: 'Kronometer',
+    raceTypeVzpon: 'Vzpon',
   },
   en: {
     // Welcome/Onboarding
@@ -306,9 +413,13 @@ export const strings = {
     randomTapToView: 'Tap to view',
 
     // Regions
+    all: 'All',
     gorenjska: 'Gorenjska',
-    dolenjska: 'Dolenjska (coming soon)',
-    stajerska: 'Štajerska (coming soon)',
+    dolenjska: 'Dolenjska',
+    stajerska: 'Štajerska',
+    primorska: 'Primorska',
+    prekmurje: 'Prekmurje',
+    osrednjaSlovenija: 'Osrednja Slovenija',
 
     // Route Details
     routeOverview: 'Route overview',
@@ -370,6 +481,9 @@ export const strings = {
     recordBackgroundWarning: 'Recording stopped because NaBajk does not record in the background yet.',
     recordBackgroundSave: 'Save ride',
     recordBackgroundDiscard: 'Discard',
+    recordGpsGood: 'EXCELLENT',
+    recordGpsOk: 'OK',
+    recordGpsPoor: 'POOR',
 
     // Summary
     summaryTitle: 'Ride Summary',
@@ -385,6 +499,11 @@ export const strings = {
 
     // Share
     shareRecordedWith: 'Recorded with NaBajk',
+    shareStoryPreview: 'Story preview',
+    shareReadyLabel: 'ready to share',
+    shareForward: 'Share...',
+    groupRideBadge: 'GROUP RIDE',
+    joinNaBajk: 'Join on NaBajk',
 
     // Create Form
     rideTitle: 'Ride title',
@@ -445,6 +564,101 @@ export const strings = {
     // Search
     searchRoutes: 'Search routes…',
     optional: '(optional)',
+
+    // Legal screens
+    privacyPolicyTitle: 'Privacy Policy',
+    termsOfServiceTitle: 'Terms of Service',
+    termsAcceptanceTitle: 'Before you continue',
+    termsCheckboxTerms: 'I agree to the Terms of Service',
+    termsCheckboxPrivacy: 'I agree to the Privacy Policy',
+    termsContinue: 'Continue',
+
+    // Climbs (Vzponi)
+    climbsTitle: 'Climbs',
+    climbsSubtitle: 'Vršič · Predel · Mangart · Ljubelj',
+    climbRecordTitle: 'Recording a climb',
+    climbRecordBody: 'Record only the climb — from bottom to top.\n\nExample: Vršič (24 km, 1,200 m↑) — start at the Soča river and record to the top. Stop when you reach the summit.',
+    climbConfirmBtn: 'Start climb',
+    navigateToStart: 'Navigate to start',
+    avgGradient: 'avg gradient',
+
+    // Onboarding walkthrough
+    onboardFabTitle: 'Green button',
+    onboardFabBody: 'Tap to record a ride, a climb, or upload a GPX file.',
+    onboardQuickTitle: 'Quick picks',
+    onboardQuickBody: 'Random route, climbs, or filter by length — all at your fingertips.',
+    onboardSearchTitle: 'Search & regions',
+    onboardSearchBody: 'Search routes by name or filter by your region.',
+    onboardTabsTitle: 'Navigation',
+    onboardTabsBody: 'Switch between routes, races, group rides, and your profile.',
+    onboardSkip: 'Skip',
+    onboardNext: 'Next',
+    onboardStart: 'Start',
+    showTutorial: 'Show walkthrough',
+    showTutorialDesc: 'Replay the intro tour of the app',
+
+    // Generic
+    error: 'Error',
+
+    // Recording cockpit
+    recordBack: 'Back',
+    recordConfirmStopTitle: 'End ride?',
+    recordConfirmStopBody: 'Are you sure you want to end the ride?',
+    recordConfirmStopBtn: 'End',
+    recordClimbBadge: '▲ Climb',
+    recordDurationLabel: 'Ride duration',
+    recordGpsSignalLabel: 'GPS Signal',
+    recordStopBtnText: 'End ride',
+
+    // Ride Summary
+    summaryErrorMsg: 'Could not save the ride. Please try again.',
+    summaryDiscardTitle: 'Discard ride?',
+    summaryDiscardBody: 'Your data will be permanently deleted.',
+    summaryDiscardBtn: 'Discard',
+    summarySavedTitle: 'Ride saved!',
+    summarySavedSubtitle: 'Share your ride…',
+    summaryHeaderTitle: 'Finish ride',
+    summaryDurationLabel: 'Duration',
+    summaryClimbProfileLabel: '▲ Climb profile',
+    summaryRideNameLabel: 'Ride name',
+    summaryTrafficLabel: 'Traffic (optional)',
+    summaryTrafficPlaceholder: 'Describe traffic conditions...',
+    summaryRoadLabel: 'Road quality (optional)',
+    summaryRoadPlaceholder: 'Describe road conditions...',
+    summaryWhyLabel: 'Why is it good? (optional)',
+    summaryWhyPlaceholder: 'What makes this ride special...',
+    summarySaveBtn: 'Save ride',
+    summaryDiscardRideBtn: 'Discard ride',
+
+    // Story share sheet
+    shareYourRide: 'Your ride',
+    shareReadyRatio: '9 : 16  ·  Ready to share',
+    shareOnHeader: 'Share on',
+    shareOnInstagram: 'Share on Instagram',
+    shareElsewhere: 'Share elsewhere',
+
+    // Climbs screen
+    noClimbs: 'No climbs',
+
+    // Add race form
+    addRaceTitle: 'Add race',
+    addRaceNameLabel: 'Race name *',
+    addRaceNamePlaceholder: 'e.g. Franja BTC',
+    addRaceDateLabel: 'Date * (YYYY-MM-DD)',
+    addRaceDatePlaceholder: 'e.g. 2026-06-15',
+    addRaceRegionLabel: 'Region (optional)',
+    addRaceRegionPlaceholder: 'e.g. Gorenjska',
+    addRaceWebsiteLabel: 'Website (optional)',
+    addRaceSubmitBtn: 'Add race',
+    addRaceErrorName: 'Race name is required.',
+    addRaceErrorDate: 'Date must be in YYYY-MM-DD format (e.g. 2026-06-15).',
+    addRaceErrorSubmit: 'Could not add the race. Please try again.',
+    addRaceCreateCardTitle: 'Suggest a race',
+    addRaceCreateCardDesc: 'Submit an amateur race or event for the calendar.',
+    addRaceTypeLabel: 'Race type',
+    raceTypeCestna: 'Road',
+    raceTypeKronometer: 'Time trial',
+    raceTypeVzpon: 'Hill climb',
   },
 };
 

@@ -25,6 +25,7 @@ import ViewShot                  from 'react-native-view-shot';
 import { StoryOverlay }          from '@/components/share/StoryOverlay';
 import { ShareOverlaySheet }     from '@/components/share/ShareOverlaySheet';
 import { exportOverlayToPng }    from '@/lib/share/overlayExport';
+import { getPlaceholderImage }   from '@/constants/placeholderImages';
 
 export default function GroupRideDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -36,7 +37,6 @@ export default function GroupRideDetailScreen() {
   const [loading, setLoading] = useState(true);
 
   const storyRef     = useRef<any>(null);
-  const [capturing,    setCapturing]    = useState(false);
   const [storyPngPath, setStoryPngPath] = useState<string | null>(null);
   const [showSheet,    setShowSheet]    = useState(false);
 
@@ -104,10 +104,7 @@ export default function GroupRideDetailScreen() {
   };
 
   const handleShare = async () => {
-    setCapturing(true);
-    await new Promise(r => setTimeout(r, 100));
     const png = await exportOverlayToPng(storyRef);
-    setCapturing(false);
     if (png) { setStoryPngPath(png); setShowSheet(true); }
   };
 
@@ -237,9 +234,9 @@ export default function GroupRideDetailScreen() {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Story capture – briefly mounted for ViewShot */}
-      {capturing && groupRide && (
-        <View style={{ position: 'absolute', top: 0, left: 0, width: 360, height: 640 }}>
+      {/* Story card – always mounted offscreen so the thumbnail pre-loads before capture */}
+      {groupRide && (
+        <View style={{ position: 'absolute', top: -9999, left: -9999, width: 360, height: 640 }}>
           <ViewShot ref={storyRef} options={{ format: 'png', quality: 1.0 }}>
             <StoryOverlay
               type="groupRide"
@@ -247,6 +244,9 @@ export default function GroupRideDetailScreen() {
                 title:        groupRide.title,
                 startsAt:     formatGroupRideDateTime(groupRide.startsAt, language),
                 meetingPoint: groupRide.meetingPoint,
+                language,
+                thumbnailUrl: getPlaceholderImage(route?.id ?? groupRide.id),
+                routeInfo:    route ? { distanceKm: route.distanceKm, elevationM: route.elevationM } : undefined,
               }}
             />
           </ViewShot>
@@ -256,6 +256,7 @@ export default function GroupRideDetailScreen() {
       <ShareOverlaySheet
         visible={showSheet}
         pngPath={storyPngPath}
+        language={language}
         onClose={() => setShowSheet(false)}
       />
     </SafeAreaView>

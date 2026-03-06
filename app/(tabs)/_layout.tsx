@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
 import { View } from 'react-native';
@@ -7,6 +7,9 @@ import { FloatingRideButton } from '@/components/record/FloatingRideButton';
 import { CustomTabBar } from '@/components/navigation/CustomTabBar';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { t } from '@/constants/i18n';
+import { getOnboardingDone } from '@/utils/localSettings';
+import OnboardingOverlay from '@/components/OnboardingOverlay';
+import { OnboardingTriggerContext } from '@/contexts/OnboardingTriggerContext';
 
 function TabBarIcon(props: { name: React.ComponentProps<typeof FontAwesome>['name']; color: string }) {
   return <FontAwesome size={22} {...props} />;
@@ -14,9 +17,16 @@ function TabBarIcon(props: { name: React.ComponentProps<typeof FontAwesome>['nam
 
 export default function TabLayout() {
   const { language } = useLanguage();
+  const [onboardingVisible, setOnboardingVisible] = useState(false);
+
+  useEffect(() => {
+    getOnboardingDone().then(done => {
+      if (!done) setOnboardingVisible(true);
+    });
+  }, []);
 
   return (
-    <>
+    <OnboardingTriggerContext.Provider value={() => setOnboardingVisible(true)}>
       <Tabs
         tabBar={(props) => <CustomTabBar {...props} />}
         screenOptions={{
@@ -64,6 +74,12 @@ export default function TabLayout() {
 
     {/* Floating Action Button - "The Beacon" */}
     <FloatingRideButton />
-  </>
+
+    <OnboardingOverlay
+      visible={onboardingVisible}
+      language={language}
+      onDone={() => setOnboardingVisible(false)}
+    />
+    </OnboardingTriggerContext.Provider>
   );
 }

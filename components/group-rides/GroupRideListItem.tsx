@@ -9,6 +9,7 @@ import Colors from '@/constants/Colors';
 import { formatShortDate, formatTime } from '@/utils/dateFormatting';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { t } from '@/constants/i18n';
+import { getPlaceholderImage } from '@/constants/placeholderImages';
 
 interface GroupRideListItemProps {
   groupRide: GroupRide;
@@ -45,7 +46,7 @@ export function GroupRideListItem({
               strokeWidth={2}
             />
           ) : (
-            <Image source={{ uri: route.imageUrl }} style={styles.previewImage} />
+            <Image source={{ uri: route.imageUrl || getPlaceholderImage(route.id) }} style={styles.previewImage} />
           )
         ) : (
           <View style={styles.placeholderPreview}>

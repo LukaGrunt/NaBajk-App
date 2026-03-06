@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -6,38 +6,32 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Colors from '@/constants/Colors';
 import { RiderLevel, t } from '@/constants/i18n';
-import { getRiderLevel, setRiderLevel } from '@/utils/localSettings';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useRiderLevel } from '@/contexts/RiderLevelContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/contexts/UserProfileContext';
+import { useShowOnboarding } from '@/contexts/OnboardingTriggerContext';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { language, setLanguage } = useLanguage();
-  const { user, signOut } = useAuth();
+  const { user, signOut, deleteAccount } = useAuth();
   const { userProfile, setUserName } = useUserProfile();
-  const [riderLevel, setRiderLevelState] = useState<RiderLevel>('intermediate');
-
-  useEffect(() => {
-    async function loadSettings() {
-      const level = await getRiderLevel();
-      setRiderLevelState(level);
-    }
-    loadSettings();
-  }, []);
+  const { riderLevel, setRiderLevel } = useRiderLevel();
+  const showOnboarding = useShowOnboarding();
 
   const handleLanguageChange = async (lang: typeof language) => {
     await setLanguage(lang);
   };
 
   const handleRiderLevelChange = async (level: RiderLevel) => {
-    setRiderLevelState(level);
     await setRiderLevel(level);
   };
 
@@ -92,6 +86,37 @@ export default function SettingsScreen() {
         },
       ]
     );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      language === 'sl' ? 'Izbriši račun?' : 'Delete account?',
+      language === 'sl'
+        ? 'To bo trajno izbrisalo tvoj račun in vse tvoje podatke. Te akcije ni mogoče razveljaviti.'
+        : 'This will permanently delete your account and all your data. This action cannot be undone.',
+      [
+        { text: language === 'sl' ? 'Prekliči' : 'Cancel', style: 'cancel' },
+        {
+          text: language === 'sl' ? 'Izbriši račun' : 'Delete account',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAccount();
+              router.replace('/auth-welcome');
+            } catch (e: any) {
+              Alert.alert(
+                language === 'sl' ? 'Napaka' : 'Error',
+                e?.message || (language === 'sl' ? 'Brisanje ni uspelo.' : 'Deletion failed.')
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleFeedback = () => {
+    Linking.openURL('mailto:nabajk.si@gmail.com?subject=FEEDBACK');
   };
 
   const handleEditNickname = () => {
@@ -176,6 +201,95 @@ export default function SettingsScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={styles.nicknameCard}
+            onPress={() => router.push('/saved-rides')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.nicknameIcon}>
+              <FontAwesome name="bicycle" size={20} color={Colors.brandGreen} />
+            </View>
+            <View style={styles.nicknameContent}>
+              <Text style={styles.nicknameLabel}>{language === 'sl' ? 'Moje vožnje' : 'My rides'}</Text>
+              <Text style={styles.nicknameValue}>{language === 'sl' ? 'Oglej si shranjene vožnje' : 'View saved rides'}</Text>
+            </View>
+            <FontAwesome name="chevron-right" size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
+
+        </View>
+
+        {/* Riding Level Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t(language, 'levelLabel')}</Text>
+          <View style={styles.levelDropdown}>
+            {([
+              { key: 'beginner',     speed: 26 },
+              { key: 'intermediate', speed: 29 },
+              { key: 'hardcore',     speed: 33 },
+            ] as { key: RiderLevel; speed: number }[]).map(({ key, speed }) => (
+              <TouchableOpacity
+                key={key}
+                style={[styles.levelOptionCompact, riderLevel === key && styles.levelOptionCompactActive]}
+                onPress={() => handleRiderLevelChange(key)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.levelTextCompact, riderLevel === key && styles.levelTextCompactActive]}>
+                  {getLevelLabel(key)}
+                </Text>
+                <Text style={[styles.levelSpeedText, riderLevel === key && styles.levelTextCompactActive]}>
+                  {speed} km/h
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Informacije Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            {language === 'sl' ? 'Informacije' : 'Information'}
+          </Text>
+
+          {/* Tutorial replay button */}
+          <TouchableOpacity
+            style={[styles.feedbackCard, styles.tutorialCard]}
+            onPress={() => { router.navigate('/(tabs)'); showOnboarding(); }}
+            activeOpacity={0.7}
+          >
+            <View style={styles.feedbackIcon}>
+              <FontAwesome name="question-circle" size={20} color={Colors.brandGreen} />
+            </View>
+            <View style={styles.feedbackContent}>
+              <Text style={styles.feedbackTitle}>{t(language, 'showTutorial')}</Text>
+              <Text style={styles.feedbackSubtitle}>{t(language, 'showTutorialDesc')}</Text>
+            </View>
+            <FontAwesome name="chevron-right" size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.feedbackCard}
+            onPress={handleFeedback}
+            activeOpacity={0.7}
+          >
+            <View style={styles.feedbackIcon}>
+              <FontAwesome name="envelope" size={20} color={Colors.brandGreen} />
+            </View>
+            <View style={styles.feedbackContent}>
+              <Text style={styles.feedbackTitle}>
+                {language === 'sl' ? 'Pošlji povratno informacijo' : 'Send feedback'}
+              </Text>
+              <Text style={styles.feedbackSubtitle}>
+                {language === 'sl'
+                  ? 'Aplikacija je nova — sporoči nam, kaj bi izboljšal!'
+                  : "The app is new — let us know what you'd improve!"}
+              </Text>
+            </View>
+            <FontAwesome name="chevron-right" size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Sign out / Delete account */}
+        <View style={[styles.section, { marginBottom: 8 }]}>
+          <TouchableOpacity
             style={styles.signOutButton}
             onPress={handleSignOut}
             activeOpacity={0.7}
@@ -183,87 +297,35 @@ export default function SettingsScreen() {
             <FontAwesome name="sign-out" size={18} color="#EF4444" />
             <Text style={styles.signOutText}>Sign out</Text>
           </TouchableOpacity>
-        </View>
 
-        {/* Rider Level Dropdown */}
-        <View style={styles.section}>
-          <TouchableOpacity style={styles.settingItem} activeOpacity={0.7}>
-            <View style={styles.settingIcon}>
-              <FontAwesome name="user" size={20} color={Colors.brandGreen} />
-            </View>
-            <View style={styles.settingContent}>
-              <Text style={styles.settingLabel}>{t(language, 'levelLabel')}</Text>
-              <Text style={styles.settingDescription}>{getLevelLabel(riderLevel)}</Text>
-            </View>
-            <FontAwesome name="chevron-right" size={16} color={Colors.textMuted} />
+          <TouchableOpacity
+            style={styles.deleteAccountButton}
+            onPress={handleDeleteAccount}
+            activeOpacity={0.7}
+          >
+            <FontAwesome name="trash" size={16} color={Colors.textMuted} />
+            <Text style={styles.deleteAccountText}>
+              {language === 'sl' ? 'Izbriši račun' : 'Delete account'}
+            </Text>
           </TouchableOpacity>
-
-          {/* Level Options - Collapsible */}
-          <View style={styles.levelDropdown}>
-            <TouchableOpacity
-              style={[
-                styles.levelOptionCompact,
-                riderLevel === 'beginner' && styles.levelOptionCompactActive,
-              ]}
-              onPress={() => handleRiderLevelChange('beginner')}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.levelTextCompact,
-                  riderLevel === 'beginner' && styles.levelTextCompactActive,
-                ]}
-              >
-                {t(language, 'levelBeginner')}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.levelOptionCompact,
-                riderLevel === 'intermediate' && styles.levelOptionCompactActive,
-              ]}
-              onPress={() => handleRiderLevelChange('intermediate')}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.levelTextCompact,
-                  riderLevel === 'intermediate' && styles.levelTextCompactActive,
-                ]}
-              >
-                {t(language, 'levelIntermediate')}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.levelOptionCompact,
-                riderLevel === 'hardcore' && styles.levelOptionCompactActive,
-              ]}
-              onPress={() => handleRiderLevelChange('hardcore')}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.levelTextCompact,
-                  riderLevel === 'hardcore' && styles.levelTextCompactActive,
-                ]}
-              >
-                {t(language, 'levelHardcore')} 🚴‍♂️
-              </Text>
-            </TouchableOpacity>
-          </View>
         </View>
 
         {/* Legal Section */}
         <View style={styles.section}>
           <View style={styles.legalRow}>
-            <TouchableOpacity style={styles.legalButton} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.legalButton}
+              activeOpacity={0.7}
+              onPress={() => router.push('/privacy-policy')}
+            >
               <Text style={styles.legalText}>{t(language, 'privacyPolicy')}</Text>
             </TouchableOpacity>
             <View style={styles.legalSeparator} />
-            <TouchableOpacity style={styles.legalButton} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.legalButton}
+              activeOpacity={0.7}
+              onPress={() => router.push('/terms-of-service')}
+            >
               <Text style={styles.legalText}>{t(language, 'termsOfService')}</Text>
             </TouchableOpacity>
           </View>
@@ -297,6 +359,7 @@ export default function SettingsScreen() {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
     </SafeAreaView>
   );
 }
@@ -405,6 +468,11 @@ const styles = StyleSheet.create({
   },
   levelTextCompactActive: {
     color: Colors.brandGreen,
+  },
+  levelSpeedText: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 2,
   },
   legalRow: {
     flexDirection: 'row',
@@ -522,6 +590,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#EF4444',
   },
+  deleteAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 10,
+    paddingVertical: 12,
+  },
+  deleteAccountText: {
+    fontSize: 13,
+    color: Colors.textMuted,
+  },
   nicknameCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -552,5 +632,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: Colors.textPrimary,
+  },
+  feedbackCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardSurface,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 188, 124, 0.25)',
+  },
+  tutorialCard: {
+    marginBottom: 10,
+  },
+  feedbackIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0, 188, 124, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  feedbackContent: {
+    flex: 1,
+  },
+  feedbackTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 2,
+  },
+  feedbackSubtitle: {
+    fontSize: 13,
+    color: Colors.textMuted,
   },
 });

@@ -100,20 +100,24 @@ function AnimatedRain({ size = 28 }: { size?: number }) {
       -1,
       false
     );
-    setTimeout(() => {
+    const t2 = setTimeout(() => {
       drop2Y.value = withRepeat(
         withTiming(4, { duration: 600, easing: Easing.linear }),
         -1,
         false
       );
     }, 200);
-    setTimeout(() => {
+    const t3 = setTimeout(() => {
       drop3Y.value = withRepeat(
         withTiming(4, { duration: 600, easing: Easing.linear }),
         -1,
         false
       );
     }, 400);
+    return () => {
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
   }, []);
 
   const drop1Style = useAnimatedStyle(() => ({
@@ -178,18 +182,19 @@ function WeatherIcon({ condition, size = 28 }: { condition: WeatherCondition; si
   }
 }
 
-export function RegionalWeatherCard() {
+export function RegionalWeatherCard({ region = 'gorenjska' }: { region?: string }) {
   const { language } = useLanguage();
   const [forecast, setForecast] = useState<ForecastPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadWeather();
-  }, []);
+  }, [region]);
 
   const loadWeather = async () => {
+    setLoading(true);
     try {
-      const data = await getWeatherForecast('gorenjska');
+      const data = await getWeatherForecast(region);
       setForecast(data);
     } catch (error) {
       console.warn('Failed to load weather:', error);

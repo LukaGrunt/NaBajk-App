@@ -1,3 +1,4 @@
+import '@/lib/rideRecorder';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { ThemeProvider, DarkTheme } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
@@ -11,6 +12,7 @@ import { LanguageProvider } from '@/contexts/LanguageContext';
 import { FavouritesProvider } from '@/contexts/FavouritesContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { UserProfileProvider } from '@/contexts/UserProfileContext';
+import { RiderLevelProvider } from '@/contexts/RiderLevelContext';
 import { PushPermissionGate } from '@/components/auth/PushPermissionGate';
 
 export {
@@ -55,6 +57,7 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <LanguageProvider>
+        <RiderLevelProvider>
         <UserProfileProvider>
           <FavouritesProvider>
             <ThemeProvider value={NaBajkTheme}>
@@ -73,6 +76,7 @@ export default function RootLayout() {
                       headerTitle: '',
                       headerTransparent: true,
                       headerTintColor: '#FFFFFF',
+                      headerBackTitle: '',
                     }}
                   />
                   <Stack.Screen
@@ -83,6 +87,7 @@ export default function RootLayout() {
                       headerTransparent: false,
                       headerTintColor: Colors.textPrimary,
                       headerStyle: { backgroundColor: Colors.background },
+                      headerBackTitle: '',
                     }}
                   />
                   <Stack.Screen
@@ -93,19 +98,27 @@ export default function RootLayout() {
                       headerTransparent: false,
                       headerTintColor: Colors.textPrimary,
                       headerStyle: { backgroundColor: Colors.background },
+                      headerBackTitle: '',
                     }}
                   />
-                  <Stack.Screen name="recording"         options={{ headerShown: true }} />
-                  <Stack.Screen name="ride-summary"     options={{ headerShown: true }} />
-                  <Stack.Screen name="saved-rides"      options={{ headerShown: true }} />
-                  <Stack.Screen name="saved-rides/[id]" options={{ headerShown: true }} />
+                  <Stack.Screen name="recording"         options={{ headerShown: false }} />
+                  <Stack.Screen name="ride-summary"     options={{ headerShown: true, headerBackTitle: '' }} />
+                  <Stack.Screen name="saved-rides"      options={{ headerShown: true, headerBackTitle: '' }} />
+                  <Stack.Screen name="saved-rides/[id]" options={{ headerShown: true, headerBackTitle: '' }} />
+                  <Stack.Screen name="terms-acceptance" options={{ headerShown: false }} />
+                  <Stack.Screen name="privacy-policy"   options={{ headerShown: true, headerBackTitle: '' }} />
+                  <Stack.Screen name="terms-of-service" options={{ headerShown: true, headerBackTitle: '' }} />
+                  <Stack.Screen name="climbs"           options={{ headerShown: true, headerBackTitle: '' }} />
+                  <Stack.Screen name="upload-route"     options={{ headerShown: true, headerBackTitle: '' }} />
                   <Stack.Screen
                     name="group-rides/[id]"
                     options={{
                       headerShown: true,
                       headerTitle: '',
-                      headerTransparent: true,
-                      headerTintColor: '#FFFFFF',
+                      headerTransparent: false,
+                      headerTintColor: Colors.textPrimary,
+                      headerStyle: { backgroundColor: Colors.background },
+                      headerBackTitle: '',
                     }}
                   />
                 </Stack>
@@ -113,6 +126,7 @@ export default function RootLayout() {
             </ThemeProvider>
           </FavouritesProvider>
         </UserProfileProvider>
+        </RiderLevelProvider>
       </LanguageProvider>
     </AuthProvider>
   );

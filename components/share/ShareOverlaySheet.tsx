@@ -1,21 +1,22 @@
 /**
- * ShareOverlaySheet – slide-up modal that lets the user choose where to
- * share the captured Story image.
+ * ShareOverlaySheet – centered floating modal for sharing a group ride Story.
  *
- * Share priority:
- *   1. Instagram Stories  (react-native-share, native)
- *   2. Facebook Stories   (react-native-share, native)
- *   3. More …             (expo-sharing system sheet)
- *
- * If the native module is missing (Expo Go) the IG / FB taps silently fall
- * back to the system sheet so the flow never dead-ends.
+ * Animation: backdrop fades in, entire content block slides up as ONE unit.
+ * Per-button Animated.View wrappers are intentionally avoided — Reanimated's
+ * opacity:0 start value blocks touches on iOS at the native layer even before
+ * the animation completes, making every wrapped button unresponsive.
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal, View, Text, StyleSheet,
-  TouchableOpacity, ActivityIndicator, Image, Platform,
+  Pressable, ActivityIndicator, Image,
 } from 'react-native';
+import Animated, {
+  useSharedValue, useAnimatedStyle,
+  withSpring, withTiming,
+} from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import {
   shareToInstagramStories,
@@ -23,198 +24,227 @@ import {
   shareFallback,
   ShareResult,
 } from '@/lib/share/shareToStories';
-
-// ── props ──────────────────────────────────────────────────
+import { t, Language } from '@/constants/i18n';
 
 interface ShareOverlaySheetProps {
-  visible: boolean;
-  pngPath: string | null;
-  onClose: () => void;
+  visible:  boolean;
+  pngPath:  string | null;
+  language: Language;
+  onClose:  () => void;
 }
 
-// ── component ──────────────────────────────────────────────
-
-export function ShareOverlaySheet({ visible, pngPath, onClose }: ShareOverlaySheetProps) {
+export function ShareOverlaySheet({ visible, pngPath, language, onClose }: ShareOverlaySheetProps) {
   const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
 
-  /* ── attempt a share, with automatic fallback ──────────── */
-  async function attempt(
-    fn:       (path: string) => Promise<ShareResult>,
-    isFallback = false,
-  ) {
+  // Backdrop fades in independently
+  const backdropOp = useSharedValue(0);
+  // Content slides up — NO opacity animation (opacity:0 blocks iOS touches at native layer)
+  const contentY  = useSharedValue(80);
+
+  useEffect(() => {
+    if (visible) {
+      backdropOp.value = withTiming(1, { duration: 250 });
+      contentY.value   = withSpring(0, { damping: 18, stiffness: 200 });
+    } else {
+      backdropOp.value = withTiming(0, { duration: 180 });
+      contentY.value   = 80;
+      setLoading(false); // always reset so re-open is clean
+    }
+  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: backdropOp.value }));
+  const contentStyle  = useAnimatedStyle(() => ({
+    transform: [{ translateY: contentY.value }],
+  }));
+
+  async function attempt(fn: (path: string) => Promise<ShareResult>, isFallback = false) {
     if (!pngPath) return;
     setLoading(true);
-    setError(null);
-
-    const result = await fn(pngPath);
-
-    if (result === 'not_installed' && !isFallback) {
-      // native module missing → drop straight to system share
-      await shareFallback(pngPath);
-    } else if (result === 'success') {
-      onClose();
-    } else if (result === 'error') {
-      setError('Could not share. Try "More …" instead.');
+    try {
+      const result = await fn(pngPath);
+      if ((result === 'not_installed' || result === 'error') && !isFallback) {
+        // native module unavailable or threw unexpectedly → open system share
+        await shareFallback(pngPath);
+      } else if (result === 'success') {
+        onClose();
+      }
+    } finally {
+      setLoading(false);
     }
-    // 'cancelled' → do nothing, let user try again
-
-    setLoading(false);
   }
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      {/* dark backdrop – tap to dismiss */}
-      <TouchableOpacity
-        style={styles.backdrop}
-        onPress={onClose}
-        activeOpacity={1}
-      />
+    <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
+      <View style={StyleSheet.absoluteFill}>
 
-      {/* sheet */}
-      <View style={styles.sheet}>
-        <View style={styles.handle} />
+        {/* Backdrop — pointerEvents="none" so it never intercepts touches */}
+        <Animated.View
+          style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]}
+          pointerEvents="none"
+        />
 
-        {/* thumbnail + label */}
-        {pngPath && (
-          <View style={styles.thumbRow}>
-            <Image source={{ uri: pngPath }} style={styles.thumb} />
-            <View>
-              <Text style={styles.thumbLabel}>Story preview</Text>
-              <Text style={styles.thumbSub}>9 : 16  ·  ready to share</Text>
+        {/* ONE animated wrapper for all content — no per-button Animated.Views */}
+        <Animated.View style={[styles.content, contentStyle]}>
+
+          {/* Story thumbnail preview */}
+          {pngPath && (
+            <View style={styles.previewRow}>
+              <Image source={{ uri: pngPath }} style={styles.thumb} resizeMode="cover" />
+              <View>
+                <Text style={styles.thumbLabel}>{t(language, 'shareStoryPreview')}</Text>
+                <Text style={styles.thumbSub}>9 : 16  ·  {t(language, 'shareReadyLabel')}</Text>
+              </View>
             </View>
+          )}
+
+          <Text style={styles.header}>{t(language, 'shareRide')}</Text>
+
+          {/* Instagram */}
+          <View style={styles.cardsRow}>
+            <Pressable
+              style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+              onPress={() => !loading && attempt(shareToInstagramStories)}
+              disabled={loading}
+            >
+              <LinearGradient
+                colors={['#F58529', '#DD2A7B', '#8134AF', '#515BD4']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
+              />
+              <FontAwesome name="instagram" size={38} color="#FFFFFF" style={styles.cardIcon} />
+              <Text style={styles.cardTitle}>Instagram</Text>
+              <Text style={styles.cardSub}>Stories</Text>
+            </Pressable>
           </View>
-        )}
 
-        {/* share buttons */}
-        <ShareBtn
-          icon="instagram"
-          label="Instagram Stories"
-          color="#E1306C"
-          disabled={loading}
-          onPress={() => attempt(shareToInstagramStories)}
-        />
-        <ShareBtn
-          icon="facebook"
-          label="Facebook Stories"
-          color="#1877F2"
-          disabled={loading}
-          onPress={() => attempt(shareToFacebookStories)}
-        />
-        <ShareBtn
-          icon="ellipsis-h"
-          label="More …"
-          color="#8A8A8F"
-          disabled={loading}
-          onPress={() => attempt(shareFallback, true)}
-        />
+          {/* System share */}
+          <Pressable
+            style={({ pressed }) => [styles.moreBtn, pressed && styles.cardPressed]}
+            onPress={() => !loading && attempt(shareFallback, true)}
+            disabled={loading}
+          >
+            <View style={styles.moreIconBox}>
+              {loading
+                ? <ActivityIndicator size="small" color="#FFFFFF" />
+                : <FontAwesome name="share-alt" size={17} color="#FFFFFF" />
+              }
+            </View>
+            <Text style={styles.moreBtnText}>{t(language, 'shareForward')}</Text>
+          </Pressable>
 
-        {/* feedback */}
-        {loading && <ActivityIndicator color="#00BF76" style={styles.loader} />}
-        {error   && <Text style={styles.errorText}>{error}</Text>}
+          {/* Skip */}
+          <Pressable style={styles.skipBtn} onPress={onClose}>
+            <Text style={styles.skipText}>{t(language, 'skip')}</Text>
+          </Pressable>
+
+        </Animated.View>
       </View>
     </Modal>
   );
 }
 
-// ── ShareBtn ───────────────────────────────────────────────
-
-// Proper type for FontAwesome icon names
-type FAIconName = React.ComponentProps<typeof FontAwesome>['name'];
-
-function ShareBtn({
-  icon, label, color, disabled, onPress,
-}: {
-  icon:     FAIconName;
-  label:    string;
-  color:    string;
-  disabled: boolean;
-  onPress:  () => void;
-}) {
-  return (
-    <TouchableOpacity
-      style={[styles.shareBtn, disabled && styles.shareBtnDisabled]}
-      onPress={onPress}
-      disabled={disabled}
-      activeOpacity={0.7}
-    >
-      <View style={[styles.shareBtnIcon, { backgroundColor: color + '22' }]}>
-        <FontAwesome name={icon} size={18} color={color} />
-      </View>
-      <Text style={styles.shareBtnLabel}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
-// ── styles ─────────────────────────────────────────────────
+const CARD_SIZE = 145;
 
 const styles = StyleSheet.create({
   backdrop: {
-    flex:            1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.82)',
   },
 
-  sheet: {
-    backgroundColor:      '#16161A',
-    borderTopLeftRadius:  24,
-    borderTopRightRadius: 24,
-    paddingTop:           12,
-    paddingBottom:        Platform.OS === 'ios' ? 40 : 24,
-    paddingHorizontal:    20,
+  content: {
+    flex:              1,
+    justifyContent:    'center',
+    alignItems:        'center',
+    paddingHorizontal: 24,
   },
 
-  handle: {
-    width:            40,
-    height:           4,
-    backgroundColor: '#2A2A2E',
-    borderRadius:     2,
-    alignSelf:        'center',
-    marginBottom:     16,
-  },
-
-  /* thumbnail row */
-  thumbRow: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           12,
-    marginBottom:  20,
+  previewRow: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    gap:             12,
+    marginBottom:    24,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius:    14,
+    padding:         12,
+    width:           '100%',
   },
   thumb: {
-    width:            54,
-    height:           96,
-    borderRadius:     8,
+    width:           54,
+    height:          96,
+    borderRadius:    8,
     backgroundColor: '#121214',
   },
   thumbLabel: { color: '#FAFAFA', fontSize: 14, fontWeight: '600' },
   thumbSub:   { color: '#8A8A8F', fontSize: 12, marginTop: 2 },
 
-  /* share button row */
-  shareBtn: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    gap:             12,
-    paddingVertical:  14,
-    paddingHorizontal: 12,
-    borderRadius:    14,
-    backgroundColor: '#1A1A1D',
-    marginBottom:    8,
+  header: {
+    fontSize:     22,
+    fontWeight:   '700',
+    color:        '#FAFAFA',
+    marginBottom: 24,
   },
-  shareBtnDisabled: { opacity: 0.4 },
-  shareBtnIcon: {
+
+  cardsRow: {
+    flexDirection: 'row',
+    gap:           16,
+    marginBottom:  16,
+  },
+  card: {
+    width:          CARD_SIZE,
+    height:         CARD_SIZE,
+    borderRadius:   22,
+    alignItems:     'center',
+    justifyContent: 'center',
+    overflow:       'hidden',
+  },
+  cardFB:      { backgroundColor: '#1877F2' },
+  cardPressed: { opacity: 0.82 },
+  cardIcon:    { marginBottom: 8 },
+  cardTitle: {
+    fontSize:     16,
+    fontWeight:   '700',
+    color:        '#FFFFFF',
+    marginBottom: 2,
+  },
+  cardSub: {
+    fontSize: 12,
+    color:    'rgba(255,255,255,0.70)',
+  },
+
+  moreBtn: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               12,
+    backgroundColor:   'rgba(255,255,255,0.08)',
+    borderRadius:      16,
+    paddingVertical:   14,
+    paddingHorizontal: 16,
+    marginBottom:      8,
+    width:             '100%',
+  },
+  moreIconBox: {
     width:           40,
     height:          40,
-    borderRadius:    12,
+    borderRadius:    10,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     alignItems:      'center',
     justifyContent:  'center',
   },
-  shareBtnLabel: { color: '#FAFAFA', fontSize: 15, fontWeight: '500' },
+  moreBtnText: {
+    color:      '#FAFAFA',
+    fontSize:   15,
+    fontWeight: '500',
+    flex:        1,
+  },
 
-  /* feedback */
-  loader:    { marginTop: 12, alignSelf: 'center' },
-  errorText: { color: '#FF6B35', fontSize: 13, textAlign: 'center', marginTop: 8 },
+  skipBtn: {
+    marginTop:         16,
+    paddingVertical:   12,
+    paddingHorizontal: 32,
+  },
+  skipText: {
+    fontSize:   16,
+    color:      '#8A8A8F',
+    fontWeight: '500',
+  },
 });

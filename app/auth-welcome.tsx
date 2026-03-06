@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Animated,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFonts, Inter_300Light, Inter_400Regular } from '@expo-google-fonts/inter';
@@ -54,7 +55,7 @@ export default function AuthWelcomeScreen() {
   // Redirect to main app when user signs in
   useEffect(() => {
     if (user) {
-      router.replace('/(tabs)');
+      router.replace('/');
     }
   }, [user]);
 
@@ -64,6 +65,10 @@ export default function AuthWelcomeScreen() {
       await signInWithGoogle();
     } catch (error) {
       console.error('Google sign in failed:', error);
+      Alert.alert(
+        language === 'sl' ? 'Prijava ni uspela' : 'Sign in failed',
+        language === 'sl' ? 'Prijava z Google ni uspela. Poskusi znova.' : 'Google sign in failed. Please try again.'
+      );
     } finally {
       setLoading(false);
     }

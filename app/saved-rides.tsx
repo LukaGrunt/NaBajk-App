@@ -54,7 +54,7 @@ export default function SavedRidesScreen() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    listSavedRides().then(r => { setRides(r); setLoaded(true); });
+    listSavedRides().then(r => { setRides(r); setLoaded(true); }).catch(() => { setLoaded(true); });
   }, []);
 
   return (

@@ -9,15 +9,20 @@ import { decodePolyline } from '@/utils/polyline';
 MapLibreGL.setAccessToken(null);
 
 interface InteractiveRouteMapProps {
-  polyline: string;
+  polyline?: string;
+  coordinates?: { lat: number; lng: number }[];
   height?: number;
 }
 
-export function InteractiveRouteMap({ polyline, height = 300 }: InteractiveRouteMapProps) {
+export function InteractiveRouteMap({ polyline, coordinates: coordsProp, height = 300 }: InteractiveRouteMapProps) {
   const routeGeoJSON = useMemo(() => {
-    if (!polyline) return null;
-
-    const decoded = decodePolyline(polyline);
+    // Use raw coordinates if provided, otherwise decode polyline
+    let decoded: { lat: number; lng: number }[] = [];
+    if (coordsProp && coordsProp.length >= 2) {
+      decoded = coordsProp;
+    } else if (polyline) {
+      decoded = decodePolyline(polyline);
+    }
     if (decoded.length < 2) return null;
 
     // Convert to [lng, lat] format (GeoJSON format)
@@ -31,7 +36,7 @@ export function InteractiveRouteMap({ polyline, height = 300 }: InteractiveRoute
       },
       properties: {},
     };
-  }, [polyline]);
+  }, [polyline, coordsProp]);
 
   const bounds = useMemo(() => {
     if (!routeGeoJSON) return null;
@@ -77,7 +82,7 @@ export function InteractiveRouteMap({ polyline, height = 300 }: InteractiveRoute
     };
   }, [routeGeoJSON]);
 
-  if (!polyline) {
+  if (!polyline && (!coordsProp || coordsProp.length === 0)) {
     return (
       <View style={[styles.container, { height }]}>
         <View style={styles.emptyContainer}>

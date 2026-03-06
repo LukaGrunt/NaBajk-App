@@ -18,8 +18,13 @@ export interface Route {
   imageUrl: string;
   featured: boolean;
   categories: RouteCategory[];
+  region?: string;
   polyline?: string; // Encoded polyline string (Google Polyline format)
-
-  // TODO: For GPX upload - add optional gpxFile field
-  // gpxFile?: string; // Original GPX file URL or data
+  gpxData?: string;  // Raw GPX XML stored in database
+  isClimb?: boolean;
+  avgGradient?: number;       // average gradient percent
+  elevationProfile?: number[]; // elevation in metres per km segment
+  traffic?: string;
+  roadCondition?: string;
+  whyGood?: string;
 }

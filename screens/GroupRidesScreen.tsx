@@ -6,8 +6,10 @@ import {
   FlatList,
   TouchableOpacity,
   Switch,
+  Alert,
   ListRenderItem,
 } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -21,7 +23,7 @@ import Colors from '@/constants/Colors';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { t } from '@/constants/i18n';
 
-const REGIONS = ['gorenjska', 'dolenjska', 'stajerska'] as const;
+const REGIONS = ['gorenjska', 'dolenjska', 'stajerska', 'primorska', 'prekmurje', 'osrednjaSlovenija'] as const;
 type Region = typeof REGIONS[number];
 
 const NOTIFICATION_PREFS_KEY = 'nabajk_group_ride_notifications';
@@ -70,15 +72,25 @@ export default function GroupRidesScreen() {
     }
   };
 
-  const toggleNotifications = (value: boolean) => {
-    setNotificationsEnabled(value);
+  const toggleNotifications = async (value: boolean) => {
     if (!value) {
+      setNotificationsEnabled(false);
       setNotifyRegions([]);
       saveNotificationPrefs(false, []);
-    } else {
-      setNotifyRegions([...REGIONS]);
-      saveNotificationPrefs(true, [...REGIONS]);
+      return;
     }
+    // Request permission when turning on
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        'Notifications Blocked',
+        'Please enable notifications for NaBajk in Settings to receive group ride alerts.',
+      );
+      return;
+    }
+    setNotificationsEnabled(true);
+    setNotifyRegions([...REGIONS]);
+    saveNotificationPrefs(true, [...REGIONS]);
   };
 
   const toggleNotifyRegion = (regionToToggle: Region) => {
@@ -89,14 +101,7 @@ export default function GroupRidesScreen() {
     saveNotificationPrefs(notificationsEnabled, newRegions);
   };
 
-  const getRegionLabel = (r: Region): string => {
-    const labels: Record<Region, { sl: string; en: string }> = {
-      gorenjska: { sl: 'Gorenjska', en: 'Gorenjska' },
-      dolenjska: { sl: 'Dolenjska', en: 'Dolenjska' },
-      stajerska: { sl: 'Štajerska', en: 'Štajerska' },
-    };
-    return labels[r][language];
-  };
+  const getRegionLabel = (r: Region): string => t(language, r);
 
   const loadGroupRides = async () => {
     setLoading(true);

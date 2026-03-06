@@ -12,9 +12,10 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { t, Language } from '@/constants/i18n';
 import { RouteOutline } from '@/components/share/RouteOutline';
 import { ClimbProfile } from '@/components/share/ClimbProfile';
 
@@ -47,6 +48,9 @@ export interface GroupRideOverlayData {
   title:        string;
   startsAt:     string;   // already-formatted date string
   meetingPoint: string;
+  language:     Language;
+  thumbnailUrl?: string;
+  routeInfo?:   { distanceKm: number; elevationM: number };
 }
 
 export type StoryType = 'route' | 'climb' | 'groupRide';
@@ -68,10 +72,11 @@ export function StoryOverlay({ type, route, climb, groupRide }: StoryOverlayProp
       locations={[0, 1]}
     >
       {/* logo */}
-      <View style={styles.logo}>
-        <FontAwesome name="bicycle" size={18} color={B.green} />
-        <Text style={styles.logoText}>NaBajk</Text>
-      </View>
+      <Image
+        source={require('@/assets/images/logo-navbar.png')}
+        style={styles.logoImage}
+        resizeMode="contain"
+      />
 
       {/* centred content */}
       <View style={styles.content}>
@@ -127,22 +132,62 @@ function ClimbLayout({ data }: { data: ClimbOverlayData }) {
 
 function GroupRideLayout({ data }: { data: GroupRideOverlayData }) {
   return (
-    <GlassCard style={styles.groupCard}>
-      <Text style={styles.cardTitle}>{data.title}</Text>
-      <View style={styles.infoLine}>
-        <FontAwesome name="calendar" size={13} color={B.green} />
-        <Text style={styles.infoText}>{data.startsAt}</Text>
-      </View>
-      <View style={styles.infoLine}>
-        <FontAwesome name="map-marker" size={13} color={B.green} />
-        <Text style={styles.infoText}>{data.meetingPoint}</Text>
-      </View>
-      <View style={styles.badgeRow}>
-        <View style={styles.greenBadge}>
-          <Text style={styles.badgeText}>Join the ride</Text>
+    <>
+      {/* Hero photo */}
+      {data.thumbnailUrl ? (
+        <View style={styles.heroWrapper}>
+          <Image source={{ uri: data.thumbnailUrl }} style={styles.heroImage} resizeMode="cover" />
+          <LinearGradient
+            colors={['rgba(10,10,11,0)', B.bg]}
+            style={[StyleSheet.absoluteFill, { borderRadius: 16 }]}
+          />
         </View>
-      </View>
-    </GlassCard>
+      ) : null}
+
+      {/* Info card */}
+      <GlassCard style={styles.groupCard}>
+        {/* Label */}
+        <View style={styles.groupLabel}>
+          <FontAwesome name="bicycle" size={11} color={B.green} />
+          <Text style={styles.groupLabelText}>{t(data.language, 'groupRideBadge')}</Text>
+        </View>
+
+        <View style={styles.thinDivider} />
+
+        {/* Title */}
+        <Text style={styles.groupTitle}>{data.title}</Text>
+
+        {/* Date */}
+        <View style={styles.infoLine}>
+          <FontAwesome name="calendar" size={12} color={B.green} />
+          <Text style={styles.infoText}>{data.startsAt}</Text>
+        </View>
+
+        {/* Meeting point */}
+        <View style={styles.infoLine}>
+          <FontAwesome name="map-marker" size={13} color={B.green} />
+          <Text style={styles.infoText}>{data.meetingPoint}</Text>
+        </View>
+
+        {/* Route stats (optional) */}
+        {data.routeInfo && (
+          <View style={styles.infoLine}>
+            <FontAwesome name="road" size={11} color={B.textSec} />
+            <Text style={[styles.infoText, { color: B.textSec }]}>
+              {data.routeInfo.distanceKm.toFixed(1)} km  ·  {data.routeInfo.elevationM} m ↑
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.thinDivider} />
+
+        {/* CTA badge */}
+        <View style={styles.greenBadge}>
+          <FontAwesome name="bicycle" size={11} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Text style={styles.badgeText}>{t(data.language, 'joinNaBajk')}</Text>
+        </View>
+      </GlassCard>
+    </>
   );
 }
 
@@ -164,17 +209,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  /* logo row */
-  logo: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           8,
-  },
-  logoText: {
-    color:       B.textPri,
-    fontSize:    22,
-    fontWeight:  '700',
-    letterSpacing: 1,
+  /* logo image */
+  logoImage: {
+    width:  130,
+    height: 40,
   },
 
   /* centred content wrapper */
@@ -196,8 +234,50 @@ const styles = StyleSheet.create({
     alignItems:       'center',
   },
 
-  /* group-ride card needs extra vertical spacing */
-  groupCard: { gap: 10 },
+  /* group-ride card */
+  groupCard: { gap: 8 },
+
+  /* hero photo */
+  heroWrapper: {
+    width:        296,
+    height:       148,
+    borderRadius: 16,
+    overflow:     'hidden',
+  },
+  heroImage: {
+    width:  '100%',
+    height: '100%',
+  },
+
+  /* label row */
+  groupLabel: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           6,
+  },
+  groupLabelText: {
+    color:         B.green,
+    fontSize:      11,
+    fontWeight:    '700',
+    letterSpacing: 1.5,
+  },
+
+  /* thin horizontal rule */
+  thinDivider: {
+    width:           '100%',
+    height:          1,
+    backgroundColor: B.border,
+    marginVertical:  2,
+  },
+
+  /* group ride title — larger than generic cardTitle */
+  groupTitle: {
+    color:       B.textPri,
+    fontSize:    19,
+    fontWeight:  '700',
+    textAlign:   'center',
+    marginBottom: 4,
+  },
 
   /* card internals */
   cardTitle: {
@@ -227,9 +307,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   greenBadge: {
+    flexDirection:    'row',
+    alignItems:       'center',
     backgroundColor:  B.green,
     borderRadius:     999,
-    paddingVertical:  5,
+    paddingVertical:  6,
     paddingHorizontal: 16,
   },
   badgeText: {

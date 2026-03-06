@@ -7,13 +7,18 @@ import {
   TextInput,
   ActivityIndicator,
   TouchableOpacity,
+  Modal,
+  Alert,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Colors from '@/constants/Colors';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { t, Language } from '@/constants/i18n';
-import { listRaces, Race } from '@/repositories/racesRepo';
+import { listRaces, createRaceSubmission, Race } from '@/repositories/racesRepo';
 import { RaceRow }          from '@/components/races/RaceRow';
 import { RaceDetailModal }  from '@/components/races/RaceDetailModal';
 
@@ -61,6 +66,14 @@ export default function TekmeScreen() {
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selectedRace, setSelectedRace]     = useState<Race | null>(null);
 
+  // Create race form
+  const [createVisible, setCreateVisible]   = useState(false);
+  const [newName, setNewName]               = useState('');
+  const [newDate, setNewDate]               = useState('');
+  const [newType, setNewType]               = useState('');
+  const [newLink, setNewLink]               = useState('');
+  const [submitting, setSubmitting]         = useState(false);
+
   /* ── fetch ──────────────────────────────────────────── */
   const fetchRaces = useCallback(async () => {
     setLoading(true);
@@ -95,6 +108,30 @@ export default function TekmeScreen() {
       : races;
     return groupByMonth(filtered, language);
   }, [races, debouncedQuery, language]);
+
+  const handleCreateSubmit = async () => {
+    if (!newName.trim()) { Alert.alert(t(language, 'error'), t(language, 'addRaceErrorName')); return; }
+    if (!newDate.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(newDate.trim())) {
+      Alert.alert(t(language, 'error'), t(language, 'addRaceErrorDate'));
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await createRaceSubmission({
+        name:     newName.trim(),
+        raceDate: newDate.trim(),
+        type:     newType || undefined,
+        link:     newLink.trim() || undefined,
+      });
+      setCreateVisible(false);
+      setNewName(''); setNewDate(''); setNewType(''); setNewLink('');
+      fetchRaces();
+    } catch {
+      Alert.alert(t(language, 'error'), t(language, 'addRaceErrorSubmit'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   /* ── layout ─────────────────────────────────────── */
   return (
@@ -140,16 +177,40 @@ export default function TekmeScreen() {
           sections={sections}
           keyExtractor={item => item.id}
           stickySectionHeadersEnabled
-          renderItem={({ item }) => (
+          ListHeaderComponent={
+            <TouchableOpacity
+              style={styles.createCard}
+              onPress={() => setCreateVisible(true)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.createCardGlow} />
+              <View style={styles.createCardContent}>
+                <View style={styles.createIconCircle}>
+                  <FontAwesome name="plus" size={22} color={Colors.background} />
+                </View>
+                <View style={styles.createCardText}>
+                  <Text style={styles.createCardTitle}>{t(language, 'addRaceCreateCardTitle')}</Text>
+                  <Text style={styles.createCardDesc}>{t(language, 'addRaceCreateCardDesc')}</Text>
+                </View>
+                <FontAwesome name="chevron-right" size={16} color={Colors.brandGreen} />
+              </View>
+            </TouchableOpacity>
+          }
+          renderItem={({ item, index, section }) => (
             <RaceRow
               race={item}
               isToday={item.raceDate === todayStr}
+              isFirst={index === 0}
+              isLast={index === section.data.length - 1}
               onPress={() => setSelectedRace(item)}
             />
           )}
           renderSectionHeader={({ section }) => (
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{section.title}</Text>
+              <View style={styles.countChip}>
+                <Text style={styles.countText}>{section.data.length}</Text>
+              </View>
             </View>
           )}
           ListEmptyComponent={
@@ -171,6 +232,79 @@ export default function TekmeScreen() {
         visible={selectedRace !== null}
         onClose={() => setSelectedRace(null)}
       />
+
+      {/* Create race modal */}
+      <Modal visible={createVisible} animationType="slide" transparent onRequestClose={() => setCreateVisible(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t(language, 'addRaceTitle')}</Text>
+              <TouchableOpacity onPress={() => setCreateVisible(false)} activeOpacity={0.7}>
+                <FontAwesome name="times" size={18} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <Text style={styles.fieldLabel}>{t(language, 'addRaceNameLabel')}</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={newName}
+                onChangeText={setNewName}
+                placeholder={t(language, 'addRaceNamePlaceholder')}
+                placeholderTextColor={Colors.textMuted}
+                editable={!submitting}
+              />
+              <Text style={styles.fieldLabel}>{t(language, 'addRaceDateLabel')}</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={newDate}
+                onChangeText={setNewDate}
+                placeholder={t(language, 'addRaceDatePlaceholder')}
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="numbers-and-punctuation"
+                editable={!submitting}
+              />
+              <Text style={styles.fieldLabel}>{t(language, 'addRaceTypeLabel')}</Text>
+              <View style={styles.typeChipsRow}>
+                {(['cestna', 'kronometer', 'vzpon'] as const).map(key => (
+                  <TouchableOpacity
+                    key={key}
+                    style={[styles.typeChip, newType === key && styles.typeChipSelected]}
+                    onPress={() => setNewType(newType === key ? '' : key)}
+                    activeOpacity={0.7}
+                    disabled={submitting}
+                  >
+                    <Text style={[styles.typeChipText, newType === key && styles.typeChipTextSelected]}>
+                      {t(language, key === 'cestna' ? 'raceTypeCestna' : key === 'kronometer' ? 'raceTypeKronometer' : 'raceTypeVzpon')}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={styles.fieldLabel}>{t(language, 'addRaceWebsiteLabel')}</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={newLink}
+                onChangeText={setNewLink}
+                placeholder="https://..."
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="url"
+                autoCapitalize="none"
+                editable={!submitting}
+              />
+              <TouchableOpacity
+                style={[styles.submitBtn, submitting && { opacity: 0.5 }]}
+                onPress={handleCreateSubmit}
+                disabled={submitting}
+                activeOpacity={0.8}
+              >
+                {submitting
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={styles.submitBtnText}>{t(language, 'addRaceSubmitBtn')}</Text>
+                }
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -198,6 +332,57 @@ const styles = StyleSheet.create({
     fontSize:  13,
     color:     Colors.textMuted,
     marginTop: 3,
+  },
+
+  /* create card — matches GroupRidesScreen style */
+  createCard: {
+    marginHorizontal: 16,
+    marginTop:        12,
+    marginBottom:     8,
+    borderRadius:     16,
+    overflow:         'hidden',
+    position:         'relative',
+  },
+  createCardGlow: {
+    position:        'absolute',
+    top:             -4,
+    left:            -4,
+    right:           -4,
+    bottom:          -4,
+    backgroundColor: 'rgba(0, 188, 124, 0.2)',
+    borderRadius:    20,
+  },
+  createCardContent: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    backgroundColor: Colors.cardSurface,
+    padding:         20,
+    borderRadius:    16,
+    borderWidth:     2,
+    borderColor:     Colors.brandGreen,
+    gap:             16,
+  },
+  createIconCircle: {
+    width:           52,
+    height:          52,
+    borderRadius:    26,
+    backgroundColor: Colors.brandGreen,
+    justifyContent:  'center',
+    alignItems:      'center',
+  },
+  createCardText: {
+    flex: 1,
+  },
+  createCardTitle: {
+    fontSize:     17,
+    fontWeight:   '700',
+    color:        Colors.textPrimary,
+    marginBottom: 3,
+  },
+  createCardDesc: {
+    fontSize:   13,
+    color:      Colors.textSecondary,
+    lineHeight: 18,
   },
 
   /* search */
@@ -238,15 +423,29 @@ const styles = StyleSheet.create({
 
   /* sticky section header — background covers cards as they scroll under */
   sectionHeader: {
+    flexDirection:     'row',
+    alignItems:        'center',
     paddingHorizontal: 16,
     paddingTop:        20,
     paddingBottom:     10,
     backgroundColor:   Colors.background,
   },
   sectionTitle: {
+    flex:       1,
     fontSize:   15,
     fontWeight: '600',
-    color:      Colors.textPrimary, // white-ish, not green
+    color:      Colors.textPrimary,
+  },
+  countChip: {
+    backgroundColor:   'rgba(255,255,255,0.08)',
+    borderRadius:      10,
+    paddingHorizontal: 8,
+    paddingVertical:   2,
+  },
+  countText: {
+    fontSize:   12,
+    fontWeight: '600',
+    color:      Colors.textMuted,
   },
 
   /* spinner / empty */
@@ -274,5 +473,88 @@ const styles = StyleSheet.create({
   /* list */
   list: {
     paddingBottom: 100,
+  },
+
+  /* create race modal */
+  modalOverlay: {
+    flex:            1,
+    justifyContent:  'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  modalSheet: {
+    backgroundColor: Colors.background,
+    borderTopLeftRadius:  20,
+    borderTopRightRadius: 20,
+    paddingHorizontal:    20,
+    paddingTop:           20,
+    paddingBottom:        40,
+    maxHeight:            '85%',
+  },
+  modalHeader: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'space-between',
+    marginBottom:   20,
+  },
+  modalTitle: {
+    fontSize:   20,
+    fontWeight: '700',
+    color:      Colors.textPrimary,
+  },
+  fieldLabel: {
+    fontSize:     13,
+    fontWeight:   '600',
+    color:        Colors.textSecondary,
+    marginBottom: 6,
+    marginTop:    14,
+  },
+  fieldInput: {
+    backgroundColor:   'rgba(255,255,255,0.05)',
+    borderRadius:      12,
+    borderWidth:       1,
+    borderColor:       Colors.border,
+    paddingHorizontal: 14,
+    paddingVertical:   12,
+    fontSize:          15,
+    color:             Colors.textPrimary,
+  },
+  submitBtn: {
+    backgroundColor: Colors.brandGreen,
+    borderRadius:    14,
+    paddingVertical: 16,
+    alignItems:      'center',
+    marginTop:       24,
+  },
+  submitBtnText: {
+    fontSize:   16,
+    fontWeight: '700',
+    color:      '#fff',
+  },
+
+  /* type chip picker */
+  typeChipsRow: {
+    flexDirection: 'row',
+    gap:           8,
+  },
+  typeChip: {
+    flex:              1,
+    paddingVertical:   10,
+    borderRadius:      10,
+    borderWidth:       1,
+    borderColor:       Colors.border,
+    backgroundColor:   'rgba(255,255,255,0.05)',
+    alignItems:        'center',
+  },
+  typeChipSelected: {
+    borderColor:     Colors.brandGreen,
+    backgroundColor: 'rgba(0, 188, 124, 0.12)',
+  },
+  typeChipText: {
+    fontSize:   13,
+    fontWeight: '600',
+    color:      Colors.textSecondary,
+  },
+  typeChipTextSelected: {
+    color: Colors.brandGreen,
   },
 });

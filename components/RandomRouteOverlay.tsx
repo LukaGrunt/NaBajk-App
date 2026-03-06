@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -41,6 +41,7 @@ export function RandomRouteOverlay({
 }: RandomRouteOverlayProps) {
   const { language } = useLanguage();
   const [showCard, setShowCard] = useState(false);
+  const showCardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Animation values
   const overlayOpacity = useSharedValue(0);
@@ -77,13 +78,16 @@ export function RandomRouteOverlay({
       textOpacity.value = withDelay(300, withTiming(1, { duration: 200 }));
 
       // 4. After bike animation, show the route card
-      setTimeout(() => {
+      showCardTimerRef.current = setTimeout(() => {
         setShowCard(true);
         textOpacity.value = withTiming(0, { duration: 150 });
         cardTranslateY.value = withSpring(0, { damping: 15, stiffness: 100 });
         cardScale.value = withSpring(1, { damping: 12, stiffness: 100 });
       }, 1880); // Adjusted for 40% slower bike animation
     }
+    return () => {
+      if (showCardTimerRef.current) clearTimeout(showCardTimerRef.current);
+    };
   }, [visible, route]);
 
   const overlayStyle = useAnimatedStyle(() => ({

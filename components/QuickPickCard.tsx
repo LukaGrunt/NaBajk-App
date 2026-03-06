@@ -125,6 +125,6 @@ const styles = StyleSheet.create({
   durationText: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.background,
+    color: '#FFFFFF',
   },
 });

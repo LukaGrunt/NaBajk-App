@@ -6,6 +6,7 @@ export interface Race {
   raceDate: string; // YYYY-MM-DD
   region?: string;
   link?: string;
+  type?: string; // 'cestna' | 'kronometer' | 'vzpon'
 }
 
 // Supabase row type (snake_case from database)
@@ -15,6 +16,27 @@ interface SupabaseRaceRow {
   race_date: string;
   region: string | null;
   link: string | null;
+  race_type: string | null;
+}
+
+/**
+ * Submit a new race event (pending admin review / public immediately depending on RLS).
+ */
+export async function createRaceSubmission(params: {
+  name: string;
+  raceDate: string; // YYYY-MM-DD
+  region?: string;
+  link?: string;
+  type?: string;
+}): Promise<void> {
+  const { error } = await supabase.from('races').insert({
+    name:      params.name,
+    race_date: params.raceDate,
+    ...(params.region && { region:     params.region }),
+    ...(params.link   && { link:       params.link }),
+    ...(params.type   && { race_type:  params.type }),
+  });
+  if (error) throw error;
 }
 
 /**
@@ -26,7 +48,7 @@ export async function listRaces(): Promise<Race[]> {
 
   const { data, error } = await supabase
     .from('races')
-    .select('id, name, race_date, region, link')
+    .select('id, name, race_date, region, link, race_type')
     .gte('race_date', today)
     .order('race_date', { ascending: true });
 
@@ -36,7 +58,8 @@ export async function listRaces(): Promise<Race[]> {
     id:        row.id,
     name:      row.name,
     raceDate:  row.race_date,
-    region:    row.region  ?? undefined,
-    link:      row.link    ?? undefined,
+    region:    row.region    ?? undefined,
+    link:      row.link      ?? undefined,
+    type:      row.race_type ?? undefined,
   }));
 }

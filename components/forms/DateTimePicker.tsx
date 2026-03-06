@@ -1,37 +1,25 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Colors from '@/constants/Colors';
 import { formatShortDate, formatTime } from '@/utils/dateFormatting';
 
 interface DateTimePickerProps {
   label: string;
   value: Date;
-  onChange: (date: Date) => void;
   mode: 'date' | 'time';
   error?: string;
-  minimumDate?: Date;
+  isOpen?: boolean;
+  onToggle?: () => void;
 }
 
 export function DateTimePickerComponent({
   label,
   value,
-  onChange,
   mode,
   error,
-  minimumDate,
+  isOpen,
+  onToggle,
 }: DateTimePickerProps) {
-  const [show, setShow] = useState(false);
-
-  const handleChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShow(false);
-    }
-    if (selectedDate) {
-      onChange(selectedDate);
-    }
-  };
-
   const displayValue =
     mode === 'date'
       ? formatShortDate(value.toISOString(), 'sl')
@@ -41,23 +29,13 @@ export function DateTimePickerComponent({
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
       <TouchableOpacity
-        style={[styles.button, error && styles.buttonError]}
-        onPress={() => setShow(true)}
+        style={[styles.button, error && styles.buttonError, isOpen && styles.buttonOpen]}
+        onPress={onToggle}
         activeOpacity={0.7}
       >
         <Text style={styles.value}>{displayValue}</Text>
       </TouchableOpacity>
       {error && <Text style={styles.error}>{error}</Text>}
-
-      {show && (
-        <DateTimePicker
-          value={value}
-          mode={mode}
-          display="default"
-          onChange={handleChange}
-          minimumDate={minimumDate}
-        />
-      )}
     </View>
   );
 }
@@ -66,7 +44,7 @@ export { DateTimePickerComponent as DateTimePicker };
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 20,
+    marginBottom: 0,
   },
   label: {
     fontSize: 14,
@@ -81,6 +59,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  buttonOpen: {
+    borderColor: Colors.brandGreen,
   },
   buttonError: {
     borderColor: '#EF4444',

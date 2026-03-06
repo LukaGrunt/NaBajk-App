@@ -14,9 +14,11 @@ import { useRouter } from 'expo-router';
 import { createGroupRide } from '@/repositories/groupRidesRepo';
 import { listRoutes } from '@/repositories/routesRepo';
 import { Route } from '@/types/Route';
+import { GroupRide } from '@/types/GroupRide';
 import { useUserProfile } from '@/contexts/UserProfileContext';
 import { FormInput } from '@/components/forms/FormInput';
 import { DateTimePicker } from '@/components/forms/DateTimePicker';
+import RNDateTimePicker from '@react-native-community/datetimepicker';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { parseCoordinatesInput } from '@/utils/coordinates';
 import {
@@ -32,10 +34,14 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { t } from '@/constants/i18n';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
-const REGIONS = ['gorenjska', 'dolenjska', 'stajerska'] as const;
+const REGIONS = ['gorenjska', 'dolenjska', 'stajerska', 'primorska', 'prekmurje', 'osrednjaSlovenija'] as const;
 type Region = typeof REGIONS[number];
 
-export default function CreateGroupRideScreen() {
+interface Props {
+  initialRouteId?: string;
+}
+
+export default function CreateGroupRideScreen({ initialRouteId }: Props) {
   const router = useRouter();
   const { language } = useLanguage();
   const { userProfile } = useUserProfile();
@@ -51,19 +57,24 @@ export default function CreateGroupRideScreen() {
   const [time, setTime] = useState(new Date());
   const [meetingPoint, setMeetingPoint] = useState('');
   const [coordinatesInput, setCoordinatesInput] = useState('');
-  const [selectedRouteId, setSelectedRouteId] = useState('');
+  const [selectedRouteId, setSelectedRouteId] = useState(initialRouteId ?? '');
   const [routeSearchQuery, setRouteSearchQuery] = useState('');
   const [notes, setNotes] = useState('');
   const [externalUrl, setExternalUrl] = useState('');
   const [visibility] = useState<'public' | 'unlisted'>('public');
   const [capacity, setCapacity] = useState('');
-  const [averageSpeed, setAverageSpeed] = useState('');
+  const [speedMode, setSpeedMode] = useState<'kmh' | 'watts'>('kmh');
+  const [speedKmh, setSpeedKmh] = useState(30);
+  const [speedWatts, setSpeedWatts] = useState(200);
 
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Loading state
   const [loading, setLoading] = useState(false);
+
+  // Which picker is open — only one at a time
+  const [openPicker, setOpenPicker] = useState<'date' | 'time' | null>(null);
 
   // Load routes on mount
   useEffect(() => {
@@ -82,14 +93,7 @@ export default function CreateGroupRideScreen() {
     }
   };
 
-  const getRegionLabel = (r: Region): string => {
-    const labels: Record<Region, { sl: string; en: string }> = {
-      gorenjska: { sl: 'Gorenjska', en: 'Gorenjska' },
-      dolenjska: { sl: 'Dolenjska', en: 'Dolenjska' },
-      stajerska: { sl: 'Štajerska', en: 'Štajerska' },
-    };
-    return labels[r][language];
-  };
+  const getRegionLabel = (r: Region): string => t(language, r);
 
   // Filtered routes based on search query
   const filteredRoutes = useMemo(() => {
@@ -149,7 +153,7 @@ export default function CreateGroupRideScreen() {
     setLoading(true);
     const rideData = {
         title: title.trim(),
-        region: region as 'gorenjska' | 'dolenjska' | 'stajerska',
+        region: region as GroupRide['region'],
         startsAt: combinedDateTime.toISOString(),
         meetingPoint: meetingPoint.trim(),
         meetingCoordinates: coords || { lat: 0, lng: 0 }, // Default if not provided
@@ -244,27 +248,47 @@ export default function CreateGroupRideScreen() {
               <DateTimePicker
                 label={t(language, 'selectDate')}
                 value={date}
-                onChange={(newDate) => {
-                  setDate(newDate);
-                  if (errors.dateTime) {
-                    const { dateTime: _, ...rest } = errors;
-                    setErrors(rest);
-                  }
-                }}
                 mode="date"
                 error={errors.dateTime}
-                minimumDate={new Date()}
+                isOpen={openPicker === 'date'}
+                onToggle={() => setOpenPicker(openPicker === 'date' ? null : 'date')}
               />
             </View>
             <View style={styles.halfWidth}>
               <DateTimePicker
                 label={t(language, 'selectTime')}
                 value={time}
-                onChange={setTime}
                 mode="time"
+                isOpen={openPicker === 'time'}
+                onToggle={() => setOpenPicker(openPicker === 'time' ? null : 'time')}
               />
             </View>
           </View>
+
+          {/* Full-width centered picker — renders below the row */}
+          {openPicker && (
+            <View style={styles.pickerContainer}>
+              <RNDateTimePicker
+                value={openPicker === 'date' ? date : time}
+                mode={openPicker}
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(_, selected) => {
+                  if (Platform.OS === 'android') setOpenPicker(null);
+                  if (!selected) return;
+                  if (openPicker === 'date') {
+                    setDate(selected);
+                    if (errors.dateTime) {
+                      const { dateTime: _, ...rest } = errors;
+                      setErrors(rest);
+                    }
+                  } else {
+                    setTime(selected);
+                  }
+                }}
+                minimumDate={openPicker === 'date' ? new Date() : undefined}
+              />
+            </View>
+          )}
 
           <FormInput
             label={t(language, 'meetingPointLabel')}
@@ -369,13 +393,53 @@ export default function CreateGroupRideScreen() {
             numberOfLines={4}
           />
 
-          <FormInput
-            label={`${t(language, 'averageSpeed')} ${t(language, 'optional')}`}
-            value={averageSpeed}
-            onChangeText={setAverageSpeed}
-            placeholder="40km/h povprecna hitrost"
-            keyboardType="default"
-          />
+          {/* Average Speed Stepper */}
+          <View style={styles.inputContainer}>
+            <View style={styles.speedLabelRow}>
+              <Text style={styles.label}>{`${t(language, 'averageSpeed')} ${t(language, 'optional')}`}</Text>
+              <View style={styles.speedToggle}>
+                <TouchableOpacity
+                  style={[styles.speedToggleBtn, speedMode === 'kmh' && styles.speedToggleBtnActive]}
+                  onPress={() => setSpeedMode('kmh')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.speedToggleText, speedMode === 'kmh' && styles.speedToggleTextActive]}>km/h</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.speedToggleBtn, speedMode === 'watts' && styles.speedToggleBtnActive]}
+                  onPress={() => setSpeedMode('watts')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.speedToggleText, speedMode === 'watts' && styles.speedToggleTextActive]}>W</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            <View style={styles.stepperCard}>
+              <TouchableOpacity
+                style={styles.stepperBtn}
+                onPress={() => {
+                  if (speedMode === 'kmh') setSpeedKmh(v => Math.max(1, v - 1));
+                  else setSpeedWatts(v => Math.max(10, v - 10));
+                }}
+                activeOpacity={0.7}
+              >
+                <FontAwesome name="minus" size={14} color={Colors.textPrimary} />
+              </TouchableOpacity>
+              <Text style={styles.stepperValue}>
+                {speedMode === 'kmh' ? `${speedKmh} km/h` : `${speedWatts} W`}
+              </Text>
+              <TouchableOpacity
+                style={styles.stepperBtn}
+                onPress={() => {
+                  if (speedMode === 'kmh') setSpeedKmh(v => v + 1);
+                  else setSpeedWatts(v => v + 10);
+                }}
+                activeOpacity={0.7}
+              >
+                <FontAwesome name="plus" size={14} color={Colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+          </View>
 
           <FormInput
             label={t(language, 'externalUrlLabel')}
@@ -466,6 +530,10 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: 12,
+    marginBottom: 8,
+  },
+  pickerContainer: {
+    alignItems: 'center',
     marginBottom: 20,
   },
   halfWidth: {
@@ -578,5 +646,62 @@ const styles = StyleSheet.create({
   regionChipTextSelected: {
     color: Colors.brandGreen,
     fontWeight: '600',
+  },
+  // Average speed stepper
+  speedLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  speedToggle: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  speedToggleBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    backgroundColor: Colors.cardSurface,
+  },
+  speedToggleBtnActive: {
+    backgroundColor: Colors.brandGreen,
+  },
+  speedToggleText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  speedToggleTextActive: {
+    color: '#FFFFFF',
+  },
+  stepperCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardSurface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  stepperBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperValue: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.textPrimary,
   },
 });

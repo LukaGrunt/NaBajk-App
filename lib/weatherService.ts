@@ -27,6 +27,9 @@ const REGIONS = {
   gorenjska: { lat: 46.24, lon: 14.36, name: 'Kranj' },
   dolenjska: { lat: 45.80, lon: 15.16, name: 'Novo mesto' },
   stajerska: { lat: 46.55, lon: 15.65, name: 'Maribor' },
+  primorska: { lat: 45.55, lon: 13.73, name: 'Koper' },
+  prekmurje: { lat: 46.66, lon: 16.16, name: 'Murska Sobota' },
+  osrednjaSlovenija: { lat: 46.05, lon: 14.51, name: 'Ljubljana' },
 };
 
 const MET_API_URL = 'https://api.met.no/weatherapi/locationforecast/2.0/compact';

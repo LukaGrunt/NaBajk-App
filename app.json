@@ -16,18 +16,23 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.nabajk.app",
-      "buildNumber": "6",
+      "buildNumber": "8",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSLocationWhenInUseUsageDescription": "NaBajk uses your location to record cycling routes.",
         "NSPhotoLibraryUsageDescription": "NaBajk uses your photo library to save and share ride images.",
+        "FacebookAppID": "820735547692883",
+        "FacebookDisplayName": "NaBajk",
         "LSApplicationQueriesSchemes": [
+          "instagram",
           "instagram-stories",
+          "fb",
           "facebook-stories"
         ],
         "CFBundleURLTypes": [
           {
-            "CFBundleURLSchemes": ["nabajk"]
+            "CFBundleURLSchemes": [
+              "nabajk"
+            ]
           }
         ]
       }
@@ -53,9 +58,30 @@
       "@react-native-community/datetimepicker",
       "expo-web-browser",
       "@maplibre/maplibre-react-native",
-      ["@react-native-google-signin/google-signin", {
-        "iosUrlScheme": "com.googleusercontent.apps.968402921869-6g035oclj9ipjno4i77aqcoamqdrg1am"
-      }]
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.968402921869-6g035oclj9ipjno4i77aqcoamqdrg1am"
+        }
+      ],
+      "expo-video",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#00BC7C",
+          "sounds": []
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "NaBajk uses your location to record cycling routes in the background.",
+          "locationWhenInUsePermission": "NaBajk uses your location to record cycling routes.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

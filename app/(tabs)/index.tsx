@@ -21,6 +21,7 @@ import { RouteListItem } from '@/components/RouteListItem';
 import { RegionalWeatherCard } from '@/components/RegionalWeatherCard';
 import { QuickPickCard } from '@/components/QuickPickCard';
 import { RandomPickCard } from '@/components/RandomPickCard';
+import { VzponiPickCard } from '@/components/VzponiPickCard';
 import { RandomRouteOverlay } from '@/components/RandomRouteOverlay';
 import { PartnerStrip, Partner } from '@/components/PartnerStrip';
 import { HeaderPanel } from '@/components/home/HeaderPanel';
@@ -33,6 +34,15 @@ import { useAnnouncement } from '@/hooks/useAnnouncement';
 import { AnnouncementModal } from '@/components/AnnouncementModal';
 
 const TIME_DURATIONS: TimeDuration[] = ['1h', '2h', '3h', '4h+'];
+
+const REGION_ID_TO_DB: Record<string, string> = {
+  gorenjska: 'Gorenjska',
+  dolenjska: 'Dolenjska',
+  primorska: 'Primorska',
+  stajerska: 'Štajerska',
+  prekmurje: 'Prekmurje',
+  osrednjaSlovenija: 'Osrednja Slovenija',
+};
 
 // TODO: replace with backend-fetched partners when ready
 const PARTNERS: Partner[] = [
@@ -67,11 +77,16 @@ export default function PotiScreen() {
   const [randomOverlayVisible, setRandomOverlayVisible] = useState(false);
   const [randomRoute, setRandomRoute] = useState<Route | null>(null);
 
-  const regions = [
-    { id: 'gorenjska', label: t(language, 'gorenjska'), selected: true, disabled: false },
-    { id: 'dolenjska', label: t(language, 'dolenjska'), selected: false, disabled: true },
-    { id: 'stajerska', label: t(language, 'stajerska'), selected: false, disabled: true },
-  ];
+  const [selectedRegion, setSelectedRegion] = useState('all');
+
+  const REGION_IDS = ['all', 'gorenjska', 'dolenjska', 'primorska', 'stajerska', 'prekmurje', 'osrednjaSlovenija'] as const;
+  const regions = REGION_IDS.map((id) => ({
+    id,
+    label: t(language, id),
+    selected: selectedRegion === id,
+    disabled: false,
+    onPress: () => setSelectedRegion(id),
+  }));
 
   // Load routes from Supabase on mount
   useEffect(() => {
@@ -94,16 +109,24 @@ export default function PotiScreen() {
     }
   };
 
-  // Filter routes based on search query (with diacritic-insensitive matching)
+  // Filter routes based on selected region and search query
   const filteredRoutes = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return allRoutes;
+    let routes = allRoutes;
+
+    if (selectedRegion !== 'all') {
+      const dbRegion = normalizeForSearch(REGION_ID_TO_DB[selectedRegion]);
+      routes = routes.filter((route) => normalizeForSearch(route.region ?? '') === dbRegion);
     }
-    const normalizedQuery = normalizeForSearch(searchQuery);
-    return allRoutes.filter((route) =>
-      normalizeForSearch(route.title).includes(normalizedQuery)
-    );
-  }, [searchQuery, allRoutes]);
+
+    if (searchQuery.trim()) {
+      const normalizedQuery = normalizeForSearch(searchQuery);
+      routes = routes.filter((route) =>
+        normalizeForSearch(route.title).includes(normalizedQuery)
+      );
+    }
+
+    return routes;
+  }, [searchQuery, allRoutes, selectedRegion]);
 
   const handleTimePress = (duration: TimeDuration) => {
     router.push(`/time/${duration}`);
@@ -149,7 +172,7 @@ export default function PotiScreen() {
       {!searchQuery.trim() && (
         <>
           {/* Regional Weather - compact */}
-          <RegionalWeatherCard />
+          <RegionalWeatherCard region={selectedRegion === 'all' ? 'gorenjska' : selectedRegion} />
 
           {/* Quick picks – time-based route filters */}
           <SectionHeader title={t(language, 'quickPicks')} />
@@ -159,14 +182,15 @@ export default function PotiScreen() {
             contentContainerStyle={styles.rowContent}
           >
             <RandomPickCard onPress={handleRandomPress} />
+            <VzponiPickCard onPress={() => router.push('/climbs')} />
             {TIME_DURATIONS.map((duration) => (
               <QuickPickCard key={duration} duration={duration} onPress={handleTimePress} />
             ))}
           </ScrollView>
 
-          {/* Partners section */}
-          <SectionHeader title={t(language, 'partners')} />
-          <PartnerStrip partners={PARTNERS} language={language} />
+          {/* Partners section — hidden until partners are confirmed */}
+          {/* <SectionHeader title={t(language, 'partners')} />
+          <PartnerStrip partners={PARTNERS} language={language} /> */}
         </>
       )}
 
@@ -179,11 +203,13 @@ export default function PotiScreen() {
                   ? t(language, 'searchResult')
                   : t(language, 'searchResults')
               }`
-            : `${t(language, 'allRoutes')} · ${t(language, 'gorenjska')}`
+            : selectedRegion === 'all'
+          ? t(language, 'allRoutes')
+          : `${t(language, 'allRoutes')} · ${t(language, selectedRegion as any)}`
         }
       />
     </>
-  ), [searchQuery, language, filteredRoutes.length, regions]);
+  ), [searchQuery, language, filteredRoutes.length, regions, selectedRegion]);
 
   // List footer with bottom spacer
   const ListFooter = useMemo(() => (

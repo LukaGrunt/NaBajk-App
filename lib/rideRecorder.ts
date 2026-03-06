@@ -4,10 +4,12 @@
  * UI never calls expo-location directly.  All GPS logic lives here.
  * Exposes an imperative API (start / stop / subscribe / getState / getPoints)
  * plus a React hook (useRideRecorder) that wraps it with useState/useEffect.
+ *
+ * Background tracking via expo-task-manager: GPS continues when screen is off.
  */
 
-import { AppState } from 'react-native';
-import * as Location from 'expo-location';
+import * as Location    from 'expo-location';
+import * as TaskManager from 'expo-task-manager';
 import { useState, useEffect } from 'react';
 
 // ── types ────────────────────────────────────────────────
@@ -58,12 +60,10 @@ let uiState: RecordingState = {
   status: 'idle', elapsedSeconds: 0, distanceMeters: 0, pointsCount: 0, gpsStatus: 'waiting',
 };
 
-let rawPoints:            RecordedPoint[]                                     = [];
-let listeners:            Set<Listener>                                       = new Set();
-let locationWatcher:      Location.LocationSubscription | null                 = null;
-let tickTimer:            ReturnType<typeof setInterval> | null               = null;
-let appStateSubscription: ReturnType<typeof AppState.addEventListener> | null = null;
-let startTimestamp        = 0;
+let rawPoints:  RecordedPoint[]                     = [];
+let listeners:  Set<Listener>                       = new Set();
+let tickTimer:  ReturnType<typeof setInterval> | null = null;
+let startTimestamp = 0;
 
 function notify() {
   const snap = { ...uiState };
@@ -85,6 +85,39 @@ function accept(point: RecordedPoint): boolean {
   return true;
 }
 
+// ── background task ──────────────────────────────────────
+
+const BACKGROUND_LOCATION_TASK = 'nabajk-background-location';
+
+TaskManager.defineTask(BACKGROUND_LOCATION_TASK, ({ data, error }: any) => {
+  if (error || !data?.locations?.length) return;
+  if (uiState.status !== 'recording') return;
+
+  for (const loc of data.locations as Location.LocationObject[]) {
+    const point: RecordedPoint = {
+      lat:       loc.coords.latitude,
+      lng:       loc.coords.longitude,
+      alt:       loc.coords.altitude ?? undefined,
+      timestamp: loc.timestamp,
+      accuracy:  loc.coords.accuracy ?? 999,
+    };
+
+    const gps: RecordingState['gpsStatus'] =
+      point.accuracy <= 5  ? 'good' :
+      point.accuracy <= 20 ? 'ok'   : 'poor';
+
+    if (accept(point)) {
+      const last  = rawPoints[rawPoints.length - 1];
+      const added = last ? haversine(last.lat, last.lng, point.lat, point.lng) : 0;
+      rawPoints.push(point);
+      uiState = { ...uiState, gpsStatus: gps, pointsCount: rawPoints.length, distanceMeters: uiState.distanceMeters + added };
+    } else {
+      uiState = { ...uiState, gpsStatus: gps };
+    }
+    notify();
+  }
+});
+
 // ── public API ───────────────────────────────────────────
 
 export async function startRecording(): Promise<void> {
@@ -102,48 +135,25 @@ export async function startRecording(): Promise<void> {
     notify();
   }, 1000);
 
-  // GPS watcher — balanced accuracy, ~4 s interval, 15 m distance threshold
+  // Background GPS — continues when screen is off
   try {
-    locationWatcher = await Location.watchPositionAsync(
-      { accuracy: Location.Accuracy.Balanced, timeInterval: 4000, distanceInterval: 15 },
-      (loc) => {
-        if (uiState.status !== 'recording') return;
+    await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
+      accuracy:                         Location.Accuracy.Balanced,
+      timeInterval:                     4000,
+      distanceInterval:                 15,
+      showsBackgroundLocationIndicator: true,   // required for App Store compliance
+      activityType:                     Location.LocationActivityType.Fitness,
+      pausesUpdatesAutomatically:       false,  // don't pause at red lights
+    });
 
-        const point: RecordedPoint = {
-          lat:       loc.coords.latitude,
-          lng:       loc.coords.longitude,
-          alt:       loc.coords.altitude ?? undefined,
-          timestamp: loc.timestamp,
-          accuracy:  loc.coords.accuracy ?? 999,
-        };
-
-        const gps: RecordingState['gpsStatus'] =
-          point.accuracy <= 5  ? 'good' :
-          point.accuracy <= 20 ? 'ok'   : 'poor';
-
-        if (accept(point)) {
-          const last  = rawPoints[rawPoints.length - 1];
-          const added = last ? haversine(last.lat, last.lng, point.lat, point.lng) : 0;
-          rawPoints.push(point);
-          uiState = { ...uiState, gpsStatus: gps, pointsCount: rawPoints.length, distanceMeters: uiState.distanceMeters + added };
-        } else {
-          uiState = { ...uiState, gpsStatus: gps };
-        }
-        notify();
-      },
-    );
-
-    // Guard: if stop() was called while we awaited the watcher, clean up immediately
-    if (uiState.status !== 'recording' && locationWatcher !== null) {
-      locationWatcher.remove();
-      locationWatcher = null;
+    // Guard: if stop() was called while awaiting startup, clean up
+    if (uiState.status !== 'recording') {
+      const isRunning = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+      if (isRunning) await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
     }
   } catch (error) {
     console.error('Failed to start GPS:', error);
-    if (tickTimer !== null) {
-      clearInterval(tickTimer);
-      tickTimer = null;
-    }
+    if (tickTimer !== null) { clearInterval(tickTimer); tickTimer = null; }
     uiState = {
       ...uiState,
       status: 'error',
@@ -152,19 +162,16 @@ export async function startRecording(): Promise<void> {
     notify();
     return;
   }
-
-  // Stop recording when the app leaves the foreground
-  appStateSubscription = AppState.addEventListener('change', (s) => {
-    if (s !== 'active' && uiState.status === 'recording') stopRecording('background');
-  });
 }
 
 export function stopRecording(reason: 'user' | 'background' = 'user'): void {
   if (uiState.status !== 'recording') return;
 
-  if (locationWatcher !== null)      { locationWatcher.remove();                           locationWatcher = null; }
-  if (tickTimer !== null)            { clearInterval(tickTimer);            tickTimer            = null; }
-  if (appStateSubscription)          { appStateSubscription.remove();       appStateSubscription = null; }
+  if (tickTimer !== null) { clearInterval(tickTimer); tickTimer = null; }
+
+  Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK).then((isRunning) => {
+    if (isRunning) Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+  });
 
   uiState = {
     ...uiState,

@@ -11,9 +11,11 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Colors from '@/constants/Colors';
 import { SectionHeader } from '@/components/SectionHeader';
 import { RouteListItem } from '@/components/RouteListItem';
-import { getRoutesByDuration } from '@/repositories/routesRepo';
+import { listRoutes } from '@/repositories/routesRepo';
 import { Route, TimeDuration } from '@/types/Route';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useRiderLevel } from '@/contexts/RiderLevelContext';
+import { calculateRideMinutes } from '@/utils/rideTimeCalculator';
 import { t } from '@/constants/i18n';
 
 // Map durations to i18n translation keys for labels
@@ -44,15 +46,26 @@ function getTimeDescKey(duration: TimeDuration): keyof typeof import('@/constant
   }
 }
 
+function matchesDuration(route: Route, duration: TimeDuration, riderLevel: string): boolean {
+  const minutes = calculateRideMinutes(route.distanceKm, route.elevationM ?? 0, riderLevel);
+  switch (duration) {
+    case '1h':  return minutes <= 60;
+    case '2h':  return minutes > 60  && minutes <= 120;
+    case '3h':  return minutes > 120 && minutes <= 180;
+    case '4h+': return minutes > 180;
+  }
+}
+
 export default function TimeDurationScreen() {
   const { duration } = useLocalSearchParams<{ duration: TimeDuration }>();
   const { language } = useLanguage();
+  const { riderLevel } = useRiderLevel();
   const [filteredRoutes, setFilteredRoutes] = useState<Route[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadRoutes();
-  }, [duration]);
+  }, [duration, riderLevel]);
 
   const loadRoutes = async () => {
     if (!duration || typeof duration !== 'string') {
@@ -63,8 +76,8 @@ export default function TimeDurationScreen() {
 
     setLoading(true);
     try {
-      const routes = await getRoutesByDuration(duration);
-      setFilteredRoutes(routes);
+      const all = await listRoutes();
+      setFilteredRoutes(all.filter(r => matchesDuration(r, duration, riderLevel)));
     } catch (error) {
       console.error('Failed to load duration routes:', error);
       setFilteredRoutes([]);

@@ -23,6 +23,7 @@ interface HeaderPanelProps {
     label: string;
     selected: boolean;
     disabled: boolean;
+    onPress?: () => void;
   }>;
 }
 
@@ -88,6 +89,7 @@ export function HeaderPanel({ searchQuery, onSearchChange, regions }: HeaderPane
               label={region.label}
               selected={region.selected}
               disabled={region.disabled}
+              onPress={region.onPress}
             />
           ))}
         </ScrollView>

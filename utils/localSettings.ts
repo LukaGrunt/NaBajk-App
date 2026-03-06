@@ -5,6 +5,7 @@ const KEYS = {
   LANGUAGE: 'nabajk_language',
   RIDER_LEVEL: 'nabajk_rider_level',
   ONBOARDING_DONE: 'nabajk_onboarding_done',
+  TERMS_ACCEPTED: 'nabajk_terms_accepted',
 };
 
 // Language
@@ -40,4 +41,14 @@ export async function setOnboardingDone(done: boolean): Promise<void> {
 // Reset onboarding (DEV only)
 export async function resetOnboarding(): Promise<void> {
   await AsyncStorage.removeItem(KEYS.ONBOARDING_DONE);
+}
+
+// Terms acceptance
+export async function getTermsAccepted(): Promise<boolean> {
+  const value = await AsyncStorage.getItem(KEYS.TERMS_ACCEPTED);
+  return value === 'true';
+}
+
+export async function setTermsAccepted(): Promise<void> {
+  await AsyncStorage.setItem(KEYS.TERMS_ACCEPTED, 'true');
 }

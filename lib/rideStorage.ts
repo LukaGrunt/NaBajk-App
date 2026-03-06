@@ -15,6 +15,9 @@ export interface SavedRide {
   pointsCount:     number;
   gpxPath:         string;   // local file URI (expo-file-system)
   uploaded:        boolean;  // TODO: set true after Supabase upload
+  traffic?:        string;
+  roadCondition?:  string;
+  whyGood?:        string;
 }
 
 // ── CRUD ─────────────────────────────────────────────────

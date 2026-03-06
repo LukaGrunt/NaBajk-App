@@ -1,32 +1,32 @@
 /**
  * shareToStories – platform share helpers.
  *
- * react-native-share is a native module that only works after `expo prebuild`.
- * In Expo Go it won't resolve, so the module is lazy-loaded behind a try/catch.
- * Every public function returns a ShareResult so callers can decide what to do
- * when the native module is missing (auto-fallback to system share).
+ * Uses the same direct-import approach as StoryShareSheet (the working
+ * ride-recording share). The lazy-require was silently returning null in
+ * native builds, causing every Instagram/Facebook attempt to fall through
+ * to the system share without opening the target app.
  */
 
+import Share, { Social } from 'react-native-share';
 import * as Sharing from 'expo-sharing';
 
-// Lazy-load react-native-share (native, unavailable in Expo Go)
-let RNShare: any = null;
-try {
-  RNShare = require('react-native-share').default;
-} catch {}
+const FB_APP_ID = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID ?? '';
+
+// Story canvas background (matches StoryOverlay B.bg)
+const STORY_BG = '#0A0A0B';
 
 export type ShareResult = 'success' | 'cancelled' | 'not_installed' | 'error';
 
 // ── Instagram Stories ──────────────────────────────────────
 
 export async function shareToInstagramStories(pngPath: string): Promise<ShareResult> {
-  if (!RNShare) return 'not_installed';
   try {
-    await RNShare.shareSingle({
-      social:           'instagram-stories',
-      backgroundImage:  pngPath,
-      attributionURL:   'https://nabajk.si',
-      appId:            process.env.EXPO_PUBLIC_FACEBOOK_APP_ID,
+    await Share.shareSingle({
+      social:                Social.InstagramStories,
+      appId:                 FB_APP_ID,
+      backgroundImage:       pngPath,
+      backgroundTopColor:    STORY_BG,
+      backgroundBottomColor: STORY_BG,
     });
     return 'success';
   } catch (e: any) {
@@ -40,13 +40,11 @@ export async function shareToInstagramStories(pngPath: string): Promise<ShareRes
 // ── Facebook Stories ───────────────────────────────────────
 
 export async function shareToFacebookStories(pngPath: string): Promise<ShareResult> {
-  if (!RNShare) return 'not_installed';
   try {
-    await RNShare.shareSingle({
-      social:           'facebook-stories',
-      backgroundImage:  pngPath,
-      attributionURL:   'https://nabajk.si',
-      appId:            process.env.EXPO_PUBLIC_FACEBOOK_APP_ID,
+    await Share.shareSingle({
+      social:          Social.FacebookStories,
+      appId:           FB_APP_ID,
+      backgroundImage: pngPath,
     });
     return 'success';
   } catch (e: any) {

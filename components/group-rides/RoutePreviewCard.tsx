@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
+import { getPlaceholderImage } from '@/constants/placeholderImages';
 import { Route } from '@/types/Route';
 import { RoutePreviewSVG } from './RoutePreviewSVG';
 import Colors from '@/constants/Colors';
@@ -37,7 +38,7 @@ export function RoutePreviewCard({ route, polyline }: RoutePreviewCardProps) {
           />
         </View>
       ) : (
-        <Image source={{ uri: route.imageUrl }} style={styles.image} />
+        <Image source={{ uri: route.imageUrl || getPlaceholderImage(route.id) }} style={styles.image} />
       )}
 
       {/* Dark gradient overlay */}

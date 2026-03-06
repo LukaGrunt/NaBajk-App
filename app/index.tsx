@@ -1,26 +1,36 @@
-import { Redirect } from 'expo-router';
+import { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { getTermsAccepted } from '@/utils/localSettings';
 
 export default function Index() {
+  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
-  // Show loading while checking auth state
-  if (authLoading) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#00BC7C" />
-      </View>
-    );
-  }
+  useEffect(() => {
+    if (authLoading) return;
 
-  // Auth gate: if not signed in, show auth welcome
-  if (!user) {
-    return <Redirect href="/auth-welcome" />;
-  }
+    if (!user) {
+      router.replace('/auth-welcome');
+      return;
+    }
 
-  // If signed in, show main app
-  return <Redirect href="/(tabs)" />;
+    // Signed in — check if user has accepted terms
+    getTermsAccepted().then((accepted) => {
+      if (!accepted) {
+        router.replace('/terms-acceptance');
+      } else {
+        router.replace('/(tabs)');
+      }
+    });
+  }, [authLoading, user]);
+
+  return (
+    <View style={styles.loading}>
+      <ActivityIndicator size="large" color="#00BC7C" />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

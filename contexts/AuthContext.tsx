@@ -30,6 +30,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   pushPermissionAsked: boolean;
   pushPermissionStatus: string | null;
   markPushPermissionAsked: (status: string) => Promise<void>;
@@ -189,6 +190,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const deleteAccount = useCallback(async () => {
+    const { error } = await supabase.rpc('delete_own_account');
+    if (error) throw error;
+    // Session is now invalid — clean up locally
+    try { await GoogleSignin.signOut(); } catch (_) {}
+    await supabase.auth.signOut();
+    await AsyncStorage.multiRemove([KEYS.PUSH_PERMISSION_ASKED, KEYS.PUSH_PERMISSION_STATUS]);
+    setPushPermissionAsked(false);
+    setPushPermissionStatus(null);
+  }, []);
+
   const markPushPermissionAsked = useCallback(async (status: string) => {
     await AsyncStorage.setItem(KEYS.PUSH_PERMISSION_ASKED, 'true');
     await AsyncStorage.setItem(KEYS.PUSH_PERMISSION_STATUS, status);
@@ -203,11 +215,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInWithGoogle,
       signInWithEmail,
       signOut,
+      deleteAccount,
       pushPermissionAsked,
       pushPermissionStatus,
       markPushPermissionAsked,
     }),
-    [user, loading, signInWithGoogle, signInWithEmail, signOut, pushPermissionAsked, pushPermissionStatus, markPushPermissionAsked]
+    [user, loading, signInWithGoogle, signInWithEmail, signOut, deleteAccount, pushPermissionAsked, pushPermissionStatus, markPushPermissionAsked]
   );
 
   return (

@@ -1,6 +1,9 @@
 -- NaBajk Database Schema
 -- Run this in Supabase SQL Editor: https://zymssfxffkymkkfndssf.supabase.co/project/zymssfxffkymkkfndssf/editor
 
+-- Migration: add race_type column to races table (run once)
+-- ALTER TABLE races ADD COLUMN IF NOT EXISTS race_type text;
+
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -28,6 +31,9 @@ CREATE TABLE routes (
   polyline TEXT, -- Encoded Google Polyline
   gpx_file_url TEXT, -- URL to GPX file in Storage
   region TEXT DEFAULT 'gorenjska', -- For future filtering
+  is_climb BOOLEAN DEFAULT FALSE,
+  avg_gradient NUMERIC(4,1) DEFAULT NULL, -- e.g. 8.2 (%)
+  elevation_profile JSONB DEFAULT NULL,   -- number[] elevations per km
   created_by UUID REFERENCES auth.users(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -37,7 +43,7 @@ CREATE TABLE routes (
 CREATE TABLE group_rides (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   title TEXT NOT NULL,
-  region TEXT NOT NULL CHECK (region IN ('gorenjska', 'dolenjska', 'stajerska')),
+  region TEXT NOT NULL CHECK (region IN ('gorenjska', 'dolenjska', 'stajerska', 'primorska', 'prekmurje', 'osrednjaSlovenija')),
   starts_at TIMESTAMPTZ NOT NULL,
   meeting_point TEXT NOT NULL,
   meeting_coordinates JSONB NOT NULL, -- { lat: number, lng: number }
@@ -82,6 +88,24 @@ CREATE INDEX idx_group_rides_visibility ON group_rides(visibility);
 CREATE INDEX idx_rsvps_group_ride ON group_ride_rsvps(group_ride_id);
 CREATE INDEX idx_rsvps_user ON group_ride_rsvps(user_id);
 CREATE INDEX idx_favourites_user ON user_favourites(user_id);
+
+-- Account self-deletion function
+-- Allows an authenticated user to permanently delete their own account.
+-- Runs as SECURITY DEFINER (DB owner) so it can delete from auth.users.
+-- All related rows in user_profiles, group_ride_rsvps, user_favourites
+-- are removed automatically via ON DELETE CASCADE.
+CREATE OR REPLACE FUNCTION delete_own_account()
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  DELETE FROM auth.users WHERE id = auth.uid();
+$$;
+
+-- Grant execute to authenticated users only
+REVOKE ALL ON FUNCTION delete_own_account() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION delete_own_account() TO authenticated;
 
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()

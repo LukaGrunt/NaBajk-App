@@ -4,7 +4,7 @@ export type GroupRideVisibility = 'public' | 'unlisted';
 export interface GroupRide {
   id: string;
   title: string;
-  region: 'gorenjska' | 'dolenjska' | 'stajerska';
+  region: 'gorenjska' | 'dolenjska' | 'stajerska' | 'primorska' | 'prekmurje' | 'osrednjaSlovenija';
   startsAt: string; // ISO 8601 timestamp
   meetingPoint: string;
   meetingCoordinates: {

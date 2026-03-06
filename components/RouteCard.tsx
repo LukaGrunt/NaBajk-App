@@ -1,10 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Dimensions, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import Colors from '@/constants/Colors';
+import { getPlaceholderImage } from '@/constants/placeholderImages';
 import { Route } from '@/types/Route';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { t } from '@/constants/i18n';
+import { useRiderLevel } from '@/contexts/RiderLevelContext';
+import { calculateRideMinutes } from '@/utils/rideTimeCalculator';
 
 interface RouteCardProps {
   route: Route;
@@ -15,6 +19,7 @@ const CARD_WIDTH = Dimensions.get('window').width * 0.75;
 export function RouteCard({ route }: RouteCardProps) {
   const router = useRouter();
   const { language } = useLanguage();
+  const { riderLevel } = useRiderLevel();
 
   const formatDuration = (minutes: number): string => {
     const hours = Math.floor(minutes / 60);
@@ -59,7 +64,7 @@ export function RouteCard({ route }: RouteCardProps) {
       onPress={() => router.push(`/route/${route.id}`)}
       activeOpacity={0.8}
     >
-      <Image source={{ uri: route.imageUrl }} style={styles.image} />
+      <Image source={{ uri: route.imageUrl || getPlaceholderImage(route.id) }} style={styles.image} cachePolicy="memory-disk" transition={200} />
       <View style={styles.overlay} />
       <View style={styles.content}>
         <View style={styles.header}>
@@ -81,7 +86,7 @@ export function RouteCard({ route }: RouteCardProps) {
             <Text style={styles.statDivider}>·</Text>
             <Text style={styles.stat}>{route.elevationM} m</Text>
             <Text style={styles.statDivider}>·</Text>
-            <Text style={styles.stat}>{formatDuration(route.durationMinutes)}</Text>
+            <Text style={styles.stat}>{formatDuration(calculateRideMinutes(route.distanceKm, route.elevationM, riderLevel))}</Text>
           </View>
         </View>
       </View>
@@ -101,7 +106,6 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,

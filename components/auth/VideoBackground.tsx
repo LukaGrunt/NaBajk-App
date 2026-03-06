@@ -1,57 +1,28 @@
-import React, { useRef, useState } from 'react';
-import { View, StyleSheet, useWindowDimensions } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
+const videoSource = require('@/assets/video/welcome-placeholder.mp4');
+
 export function VideoBackground() {
-  const video = useRef<Video>(null);
-  const [videoError, setVideoError] = useState(false);
-  const { width, height } = useWindowDimensions();
-
-  // TODO: Replace placeholder video with final video
-  // Place video file at: /assets/video/welcome-placeholder.mp4
-  // Video should be high quality, cycling footage optimized for mobile
-
-  const handleVideoError = () => {
-    console.warn('Video failed to load, using fallback gradient');
-    setVideoError(true);
-  };
+  const player = useVideoPlayer(videoSource, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
 
   return (
-    <View style={styles.container}>
-      {!videoError ? (
-        <Video
-          ref={video}
-          source={require('@/assets/video/welcome-placeholder.mp4')}
-          style={{ width, height }}
-          resizeMode={ResizeMode.COVER}
-          shouldPlay
-          isLooping
-          isMuted
-          onError={handleVideoError}
-        />
-      ) : (
-        // Fallback gradient if video fails to load
-        <LinearGradient
-          colors={['#03130E', '#0A1F18', '#03130E']}
-          style={{ width, height }}
-        />
-      )}
-
-      {/* Dark overlay for text readability */}
-      <LinearGradient
-        colors={['rgba(3, 19, 14, 0.4)', 'rgba(3, 19, 14, 0.7)', 'rgba(3, 19, 14, 0.85)']}
-        style={styles.overlay}
+    <>
+      <VideoView
+        player={player}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        nativeControls={false}
       />
-    </View>
+      <LinearGradient
+        colors={['rgba(3,19,14,0.45)', 'rgba(3,19,14,0.2)', 'rgba(3,19,14,0.65)']}
+        style={StyleSheet.absoluteFill}
+      />
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
-});

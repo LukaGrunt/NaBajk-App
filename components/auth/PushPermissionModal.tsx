@@ -10,6 +10,7 @@ import {
 import { BlurView } from 'expo-blur';
 import * as Notifications from 'expo-notifications';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 interface PushPermissionModalProps {
   visible: boolean;
@@ -52,11 +53,20 @@ export function PushPermissionModal({ visible, language, onClose }: PushPermissi
 
       await markPushPermissionAsked(finalStatus);
 
-      // TODO: If granted, register for push notifications with your backend
-      // if (finalStatus === 'granted') {
-      //   const token = (await Notifications.getExpoPushTokenAsync()).data;
-      //   // Send token to your backend
-      // }
+      if (finalStatus === 'granted') {
+        const { data: tokenData } = await Notifications.getExpoPushTokenAsync({
+          projectId: 'df3fd1bb-6e93-4a90-ac6c-9f7a99d08250',
+        });
+        if (tokenData) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            await supabase
+              .from('user_profiles')
+              .update({ push_token: tokenData })
+              .eq('id', user.id);
+          }
+        }
+      }
     } catch (error) {
       console.error('Failed to request push permissions:', error);
       await markPushPermissionAsked('error');
