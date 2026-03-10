@@ -53,22 +53,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [pushPermissionStatus, setPushPermissionStatus] = useState<string | null>(null);
 
   // Handle deep link URLs (for email magic links)
+  // Supports both implicit (#access_token=...) and PKCE (?token_hash=...) formats
   const handleDeepLink = useCallback(async (url: string) => {
     try {
       const hashIndex = url.indexOf('#');
-      if (hashIndex === -1) return;
+      const queryIndex = url.indexOf('?');
 
-      const hash = url.substring(hashIndex + 1);
-      const params = new URLSearchParams(hash);
-      const accessToken = params.get('access_token');
-      const refreshToken = params.get('refresh_token');
+      if (hashIndex !== -1) {
+        // Implicit flow: tokens in hash fragment
+        const hash = url.substring(hashIndex + 1);
+        const params = new URLSearchParams(hash);
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
 
-      if (accessToken) {
-        const { error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken || '',
-        });
-        if (error) console.error('Failed to set session from deep link:', error);
+        if (accessToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || '',
+          });
+          if (error) console.error('Failed to set session from deep link:', error);
+        }
+      } else if (queryIndex !== -1) {
+        // PKCE flow: token_hash in query params
+        const query = url.substring(queryIndex + 1);
+        const params = new URLSearchParams(query);
+        const tokenHash = params.get('token_hash');
+        const type = params.get('type');
+
+        if (tokenHash && type) {
+          const { error } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: type as any,
+          });
+          if (error) console.error('Failed to verify OTP from deep link:', error);
+        }
       }
     } catch (error) {
       console.error('Failed to handle deep link:', error);
@@ -117,38 +135,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [handleDeepLink]);
 
   const signInWithGoogle = useCallback(async () => {
-    try {
-      // Check if Google Play Services are available (Android only, always true on iOS)
-      await GoogleSignin.hasPlayServices();
+    // Check if Google Play Services are available (Android only, always true on iOS)
+    await GoogleSignin.hasPlayServices();
 
-      // Sign in with Google natively
-      const userInfo = await GoogleSignin.signIn();
+    // v16+: signIn() returns an object instead of throwing
+    const userInfo = await GoogleSignin.signIn();
 
-      if (!userInfo.data?.idToken) {
-        throw new Error('No ID token returned from Google');
-      }
-
-      // Sign in to Supabase with the Google ID token
-      const { error } = await supabase.auth.signInWithIdToken({
-        provider: 'google',
-        token: userInfo.data.idToken,
-      });
-
-      if (error) throw error;
-    } catch (error: any) {
-      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-        // User cancelled - don't show error
-        return;
-      } else if (error.code === statusCodes.IN_PROGRESS) {
-        Alert.alert('Sign In', 'Sign in already in progress');
-      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-        Alert.alert('Error', 'Google Play Services not available');
-      } else {
-        console.error('Google sign in failed:', error);
-        Alert.alert('Sign In Failed', error.message || 'Unknown error');
-      }
-      throw error;
+    if (userInfo.type === 'cancelled') {
+      // User dismissed the picker — silent exit
+      return;
     }
+
+    if (!userInfo.data?.idToken) {
+      throw new Error('No ID token returned from Google');
+    }
+
+    // Sign in to Supabase with the Google ID token
+    const { error } = await supabase.auth.signInWithIdToken({
+      provider: 'google',
+      token: userInfo.data.idToken,
+    });
+
+    if (error) throw error;
   }, []);
 
   const signInWithEmail = useCallback(async (email: string) => {

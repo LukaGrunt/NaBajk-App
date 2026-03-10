@@ -72,11 +72,7 @@ export function EmailSignInModal({ visible, language, onClose, onSubmit }: Email
     } catch (err: unknown) {
       console.error('Email sign in error:', err);
       const message = err instanceof Error ? err.message : '';
-      if (message.includes('Invalid') || message.includes('invalid')) {
-        setError(t.errorInvalid);
-      } else {
-        setError(t.errorApi);
-      }
+      setError(message || t.errorApi);
     } finally {
       setLoading(false);
     }
