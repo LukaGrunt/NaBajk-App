@@ -74,18 +74,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (error) console.error('Failed to set session from deep link:', error);
         }
       } else if (queryIndex !== -1) {
-        // PKCE flow: token_hash in query params
+        // PKCE flow: code in query params
         const query = url.substring(queryIndex + 1);
         const params = new URLSearchParams(query);
-        const tokenHash = params.get('token_hash');
-        const type = params.get('type');
+        const code = params.get('code');
 
-        if (tokenHash && type) {
-          const { error } = await supabase.auth.verifyOtp({
-            token_hash: tokenHash,
-            type: type as any,
-          });
-          if (error) console.error('Failed to verify OTP from deep link:', error);
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) console.error('Failed to exchange code from deep link:', error);
         }
       }
     } catch (error) {

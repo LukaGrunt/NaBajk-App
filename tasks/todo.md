@@ -571,6 +571,58 @@ ALTER TABLE races ADD COLUMN IF NOT EXISTS race_type text;
 
 ---
 
+# Auth Fix — Build 25 (EAS Env Vars + PKCE)
+
+## Root Cause
+EAS production environment had NO env vars — every build was using `placeholder.supabase.co` fallback URL. All Supabase calls failed with "Network request failed" before reaching the real server.
+
+## Tasks
+
+- [ ] Step 1: Add `EXPO_PUBLIC_SUPABASE_URL` to EAS production env vars (plaintext)
+- [ ] Step 2: Add `EXPO_PUBLIC_SUPABASE_ANON_KEY` to EAS production env vars (plaintext)
+- [ ] Step 3: Commit current code changes (`lib/supabase.ts` flowType + `contexts/AuthContext.tsx` PKCE handler)
+- [ ] Step 4: Run `eas build --platform ios --profile production --auto-submit` (Build 25)
+
+## Review
+
+(to be filled)
+
+---
+
+# Auth Fix — Magic Link + Google Sign-In
+
+## Status
+
+- [x] **Google Sign-In v16 fix** — `AuthContext.tsx`: `userInfo.type === 'cancelled'` check so dismissing the picker doesn't throw
+- [x] **PKCE deep link handler** — `AuthContext.tsx`: handles both hash-fragment (implicit) and `?token_hash=` (PKCE) magic link URLs
+- [x] **Error visibility** — `EmailSignInModal.tsx`: shows raw Supabase error instead of generic "Prijava ni uspela"
+- [ ] **DIAGNOSE**: Check Supabase Dashboard → Authentication → Logs for the failed OTP request — the exact error is there (rate limit / SMTP / config)
+
+## Notes
+
+- `flowType: 'implicit'` is set in `lib/supabase.ts` (unchanged from commit 35c940d)
+- If the OTP call itself fails before any email is sent, it's a Supabase server-side issue (rate limit, SMTP), not a deep link parsing issue
+- Google Sign-In code fix needs a new build to take effect on device
+
+---
+
+# Auth Fix — Build 22 (Google Sign-In v16 + Magic Link)
+
+## Tasks
+
+- [x] **Manual (user)**: Add `nabajk://auth/callback` to Supabase → Authentication → URL Configuration → Redirect URLs
+- [x] **Google v16 fix** — `contexts/AuthContext.tsx`: `userInfo.type === 'cancelled'` check (already in working dir)
+- [x] **Error visibility** — `components/auth/EmailSignInModal.tsx`: shows raw Supabase error (already in working dir)
+- [ ] Commit both files
+- [ ] Run `eas build --platform ios --profile production` (Build 22)
+- [ ] Submit to TestFlight when build completes
+
+## Review
+
+(to be filled)
+
+---
+
 # i18n Audit — Fix All Hardcoded UI Strings
 
 ## Tasks
