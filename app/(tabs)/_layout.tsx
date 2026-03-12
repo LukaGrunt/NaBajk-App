@@ -21,7 +21,7 @@ export default function TabLayout() {
 
   useEffect(() => {
     getOnboardingDone().then(done => {
-      if (!done) setOnboardingVisible(true);
+      if (!done) setTimeout(() => setOnboardingVisible(true), 600);
     });
   }, []);
 

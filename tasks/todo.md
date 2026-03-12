@@ -1,3 +1,15 @@
+# Chat — Floating Button + Full-Screen Modal
+
+## Tasks
+- [x] Step 1: Rewrite `RideChatSection.tsx` — floating button with violent shake+pulse, full-screen WhatsApp-style modal, keyboard-safe input
+- [x] Step 2: Update `GroupRideDetailScreen.tsx` — move chat outside ScrollView as absolute overlay
+
+## Review
+- `RideChatSection`: FAB is `position:absolute` bottom-right. Glow ring scales+fades. Button shakes ±18° with scale pop, repeating every ~2.2s. Modal is 92% screen height, slides up from bottom, `KeyboardAvoidingView` is the root so input lifts properly. Send on `returnKeyType="send"` works. Name prompt overlays the modal itself.
+- `GroupRideDetailScreen`: removed `<RideChatSection>` from inside the ScrollView section, added it as a direct child of `SafeAreaView` so it floats above everything.
+
+---
+
 # Onboarding Walkthrough
 
 ## Tasks
@@ -620,6 +632,20 @@ EAS production environment had NO env vars — every build was using `placeholde
 ## Review
 
 (to be filled)
+
+---
+
+# Animated Loading Screen + Onboarding Timing Fix
+
+## Tasks
+- [x] `app/index.tsx` — Replace bare spinner with branded loading screen (logo fade-in, typewriter quote, 2.5s minimum)
+- [x] `app/(tabs)/_layout.tsx` — Add 600ms delay before showing onboarding overlay
+
+## Review
+
+**`app/index.tsx`** — Full rewrite of the loading screen. Dark `#0A0A0B` background. Logo (`logo-navbar.png`) fades in + slides up via Reanimated (`withTiming`, 600ms). A randomly-picked motivational quote (Slovenian or English based on `useLanguage`) types out via `setInterval` starting at 500ms, one character every 45ms. `minReady` state gates navigation — set `true` after 2500ms so the screen always shows for at least 2.5 seconds, which gives `/(tabs)` time to render before the onboarding overlay fires.
+
+**`app/(tabs)/_layout.tsx`** — One-line change: `setOnboardingVisible(true)` wrapped in `setTimeout(..., 600)` as a belt-and-suspenders guard on top of the 2.5s minimum.
 
 ---
 
