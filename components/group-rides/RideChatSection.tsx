@@ -12,17 +12,8 @@ import {
   ActivityIndicator,
   Dimensions,
   SafeAreaView,
+  Animated,
 } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withSequence,
-  withTiming,
-  withDelay,
-  Easing,
-  cancelAnimation,
-} from 'react-native-reanimated';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { listMessages, postMessage, RideMessage } from '@/repositories/groupRidesRepo';
 import { useUserProfile } from '@/contexts/UserProfileContext';
@@ -64,92 +55,20 @@ export function RideChatSection({ groupRideId, isExpired }: RideChatSectionProps
   const [nameInput, setNameInput] = useState('');
   const flatListRef = useRef<FlatList>(null);
 
-  // ── Violent button animation ──────────────────────────────────
-  // 1. Shake: rapid left-right rotation
-  // 2. Scale pulse: grows and shrinks aggressively
-  // 3. Glow ring: opacity pulses
-  const rotate = useSharedValue(0);
-  const scale = useSharedValue(1);
-  const glowOpacity = useSharedValue(0.4);
-  const glowScale = useSharedValue(1);
+  // ── Simple scale pulse using RN Animated (JS thread, no Fabric conflicts) ──
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    if (isExpired || open) {
-      cancelAnimation(rotate);
-      cancelAnimation(scale);
-      cancelAnimation(glowOpacity);
-      cancelAnimation(glowScale);
-      rotate.value = 0;
-      scale.value = 1;
-      glowOpacity.value = 0.4;
-      glowScale.value = 1;
-      return;
-    }
-
-    // Shake: rotate ±18° rapidly, 3 shakes then pause, repeat
-    rotate.value = withRepeat(
-      withSequence(
-        withTiming(18, { duration: 80, easing: Easing.linear }),
-        withTiming(-18, { duration: 80, easing: Easing.linear }),
-        withTiming(14, { duration: 70, easing: Easing.linear }),
-        withTiming(-14, { duration: 70, easing: Easing.linear }),
-        withTiming(8, { duration: 60, easing: Easing.linear }),
-        withTiming(0, { duration: 60, easing: Easing.linear }),
-        // pause before next shake
-        withDelay(1800, withTiming(0, { duration: 1 }))
-      ),
-      -1,
-      false
+    if (isExpired) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.08, duration: 600, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      ])
     );
-
-    // Scale: pop out on each shake burst
-    scale.value = withRepeat(
-      withSequence(
-        withTiming(1.22, { duration: 120, easing: Easing.out(Easing.quad) }),
-        withTiming(0.92, { duration: 80 }),
-        withTiming(1.1, { duration: 80 }),
-        withTiming(1, { duration: 100 }),
-        withDelay(1800, withTiming(1, { duration: 1 }))
-      ),
-      -1,
-      false
-    );
-
-    // Glow ring: fast pulse in sync with shake, then slow breathe during pause
-    glowOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.9, { duration: 200 }),
-        withTiming(0.2, { duration: 200 }),
-        withTiming(0.8, { duration: 200 }),
-        withTiming(0.15, { duration: 1600, easing: Easing.inOut(Easing.sine) }),
-      ),
-      -1,
-      false
-    );
-
-    glowScale.value = withRepeat(
-      withSequence(
-        withTiming(1.7, { duration: 200 }),
-        withTiming(1.2, { duration: 200 }),
-        withTiming(1.6, { duration: 200 }),
-        withTiming(1.1, { duration: 1600, easing: Easing.inOut(Easing.sine) }),
-      ),
-      -1,
-      false
-    );
-  }, [isExpired, open]);
-
-  const buttonAnimStyle = useAnimatedStyle(() => ({
-    transform: [
-      { rotate: `${rotate.value}deg` },
-      { scale: scale.value },
-    ],
-  }));
-
-  const glowAnimStyle = useAnimatedStyle(() => ({
-    opacity: glowOpacity.value,
-    transform: [{ scale: glowScale.value }],
-  }));
+    loop.start();
+    return () => loop.stop();
+  }, [isExpired]);
 
   // ── Messages ──────────────────────────────────────────────────
   useEffect(() => {
@@ -247,10 +166,10 @@ export function RideChatSection({ groupRideId, isExpired }: RideChatSectionProps
     <>
       {/* ── Floating button ── */}
       <View style={styles.fabContainer} pointerEvents="box-none">
-        {/* Glow ring behind button */}
-        <Animated.View style={[styles.glowRing, glowAnimStyle]} />
+        {/* Static glow ring */}
+        <View style={[styles.glowRing, { opacity: 0.4 }]} />
 
-        <Animated.View style={buttonAnimStyle}>
+        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
           <TouchableOpacity
             style={styles.fab}
             onPress={() => setOpen(true)}
