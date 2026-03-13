@@ -119,8 +119,6 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
   },
   iconContainer: {
     width: 40,
@@ -141,6 +139,6 @@ const styles = StyleSheet.create({
   },
   logoImage: {
     width: '100%',
-    height: 60,
+    aspectRatio: 297 / 96,
   },
 });
