@@ -47,10 +47,10 @@ const REGION_ID_TO_DB: Record<string, string> = {
 // TODO: replace with backend-fetched partners when ready
 const PARTNERS: Partner[] = [
   {
-    id: 'proteini-si',
-    name: 'Proteini.si',
-    valueProp: { sl: 'Prehrana za športnike', en: 'Sports nutrition' },
-    url: 'https://www.proteini.si',
+    id: 'vitamini-si',
+    name: 'Vitamini.si',
+    valueProp: { sl: 'Prehrana za kolesarje', en: 'Cycling nutrition' },
+    url: 'https://www.vitamini.si/shop/category/prehrana-ogljikovi-hidrati-geli-126',
     logoImage: require('@/assets/images/partner-left.png'),
     category: { sl: 'PREHRANA', en: 'NUTRITION' },
   },
@@ -58,7 +58,7 @@ const PARTNERS: Partner[] = [
     id: 'a2u',
     name: 'A2U',
     valueProp: { sl: 'Kolesarska oprema', en: 'Cycling gear' },
-    url: 'https://a2u.si',
+    url: 'https://www.a2u.si/kolesarstvo/',
     logoImage: require('@/assets/images/partner-right.png'),
     category: { sl: 'SERVIS / TRGOVINA', en: 'SERVICE / SHOP' },
   },
@@ -188,9 +188,8 @@ export default function PotiScreen() {
             ))}
           </ScrollView>
 
-          {/* Partners section — hidden until partners are confirmed */}
-          {/* <SectionHeader title={t(language, 'partners')} />
-          <PartnerStrip partners={PARTNERS} language={language} /> */}
+          <SectionHeader title={t(language, 'partners')} />
+          <PartnerStrip partners={PARTNERS} language={language} />
         </>
       )}
 

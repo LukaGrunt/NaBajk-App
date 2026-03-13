@@ -17,6 +17,7 @@ import { GroupRide } from '@/types/GroupRide';
 import { Route } from '@/types/Route';
 import { RoutePreviewCard } from '@/components/group-rides/RoutePreviewCard';
 import { RSVPModule } from '@/components/group-rides/RSVPModule';
+import { RideChatSection } from '@/components/group-rides/RideChatSection';
 import Colors from '@/constants/Colors';
 import { formatGroupRideDateTime } from '@/utils/dateFormatting';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -233,6 +234,12 @@ export default function GroupRideDetailScreen() {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Floating chat button — rendered outside ScrollView so it stays fixed */}
+      <RideChatSection
+        groupRideId={groupRide.id}
+        isExpired={new Date(groupRide.startsAt) < new Date()}
+      />
 
       {/* Story card – always mounted offscreen so the thumbnail pre-loads before capture */}
       {groupRide && (

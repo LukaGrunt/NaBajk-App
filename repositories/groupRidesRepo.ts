@@ -61,8 +61,11 @@ function mapSupabaseToRSVP(data: SupabaseRSVPRow): GroupRideRSVP {
 
 /**
  * List all upcoming public group rides, sorted by startsAt
+ * Also triggers cleanup of expired chat messages (fire-and-forget)
  */
 export async function listGroupRides(): Promise<GroupRide[]> {
+  cleanupExpiredMessages(); // fire-and-forget
+
   const { data, error } = await supabase
     .from('group_rides')
     .select('*')
@@ -190,4 +193,92 @@ export async function getRSVPCounts(groupRideId: string): Promise<{
     maybe: rideRsvps.filter((r) => r.status === 'maybe').length,
     notGoing: rideRsvps.filter((r) => r.status === 'not_going').length,
   };
+}
+
+// ── Chat Messages ──────────────────────────────────────────────
+
+export interface RideMessage {
+  id: string;
+  groupRideId: string;
+  userName: string;
+  message: string;
+  createdAt: string;
+}
+
+/**
+ * Fetch last 100 messages for a ride, ordered oldest-first
+ */
+export async function listMessages(groupRideId: string): Promise<RideMessage[]> {
+  const { data, error } = await supabase
+    .from('group_ride_messages')
+    .select('*')
+    .eq('group_ride_id', groupRideId)
+    .order('created_at', { ascending: true })
+    .limit(100);
+
+  if (error) {
+    console.error('Failed to fetch messages:', error);
+    return [];
+  }
+
+  return data.map((row) => ({
+    id: row.id,
+    groupRideId: row.group_ride_id,
+    userName: row.user_name,
+    message: row.message,
+    createdAt: row.created_at,
+  }));
+}
+
+/**
+ * Post a new message; purges oldest if count hits 100
+ */
+export async function postMessage(
+  groupRideId: string,
+  userName: string,
+  message: string
+): Promise<void> {
+  // Enforce 100-message cap: delete the oldest if at limit
+  const { count } = await supabase
+    .from('group_ride_messages')
+    .select('*', { count: 'exact', head: true })
+    .eq('group_ride_id', groupRideId);
+
+  if (count && count >= 100) {
+    const { data: oldest } = await supabase
+      .from('group_ride_messages')
+      .select('id')
+      .eq('group_ride_id', groupRideId)
+      .order('created_at', { ascending: true })
+      .limit(1);
+
+    if (oldest?.[0]) {
+      await supabase.from('group_ride_messages').delete().eq('id', oldest[0].id);
+    }
+  }
+
+  const { error } = await supabase
+    .from('group_ride_messages')
+    .insert({ group_ride_id: groupRideId, user_name: userName, message });
+
+  if (error) throw error;
+}
+
+/**
+ * Delete messages for rides that started more than 2 hours ago
+ */
+export async function cleanupExpiredMessages(): Promise<void> {
+  const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+
+  const { data: expiredRides } = await supabase
+    .from('group_rides')
+    .select('id')
+    .lt('starts_at', cutoff);
+
+  if (!expiredRides || expiredRides.length === 0) return;
+
+  await supabase
+    .from('group_ride_messages')
+    .delete()
+    .in('group_ride_id', expiredRides.map((r) => r.id));
 }

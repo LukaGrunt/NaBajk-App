@@ -21,6 +21,7 @@ import { t, Language } from '@/constants/i18n';
 import { listRaces, createRaceSubmission, Race } from '@/repositories/racesRepo';
 import { RaceRow }          from '@/components/races/RaceRow';
 import { RaceDetailModal }  from '@/components/races/RaceDetailModal';
+import RNDateTimePicker     from '@react-native-community/datetimepicker';
 
 // ── types ──────────────────────────────────────────────
 
@@ -69,7 +70,8 @@ export default function TekmeScreen() {
   // Create race form
   const [createVisible, setCreateVisible]   = useState(false);
   const [newName, setNewName]               = useState('');
-  const [newDate, setNewDate]               = useState('');
+  const [newDate, setNewDate]               = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [newType, setNewType]               = useState('');
   const [newLink, setNewLink]               = useState('');
   const [submitting, setSubmitting]         = useState(false);
@@ -111,7 +113,7 @@ export default function TekmeScreen() {
 
   const handleCreateSubmit = async () => {
     if (!newName.trim()) { Alert.alert(t(language, 'error'), t(language, 'addRaceErrorName')); return; }
-    if (!newDate.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(newDate.trim())) {
+    if (!newDate) {
       Alert.alert(t(language, 'error'), t(language, 'addRaceErrorDate'));
       return;
     }
@@ -119,12 +121,12 @@ export default function TekmeScreen() {
     try {
       await createRaceSubmission({
         name:     newName.trim(),
-        raceDate: newDate.trim(),
+        raceDate: newDate.toISOString().split('T')[0],
         type:     newType || undefined,
         link:     newLink.trim() || undefined,
       });
       setCreateVisible(false);
-      setNewName(''); setNewDate(''); setNewType(''); setNewLink('');
+      setNewName(''); setNewDate(new Date()); setNewType(''); setNewLink('');
       fetchRaces();
     } catch {
       Alert.alert(t(language, 'error'), t(language, 'addRaceErrorSubmit'));
@@ -254,15 +256,30 @@ export default function TekmeScreen() {
                 editable={!submitting}
               />
               <Text style={styles.fieldLabel}>{t(language, 'addRaceDateLabel')}</Text>
-              <TextInput
-                style={styles.fieldInput}
-                value={newDate}
-                onChangeText={setNewDate}
-                placeholder={t(language, 'addRaceDatePlaceholder')}
-                placeholderTextColor={Colors.textMuted}
-                keyboardType="numbers-and-punctuation"
-                editable={!submitting}
-              />
+              <TouchableOpacity
+                style={[styles.fieldInput, styles.dateButton, showDatePicker && styles.dateButtonOpen]}
+                onPress={() => setShowDatePicker(!showDatePicker)}
+                activeOpacity={0.7}
+                disabled={submitting}
+              >
+                <Text style={styles.dateButtonText}>
+                  {newDate.toLocaleDateString(language === 'sl' ? 'sl-SI' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </Text>
+                <FontAwesome name="calendar" size={15} color={Colors.textSecondary} />
+              </TouchableOpacity>
+              {showDatePicker && (
+                <RNDateTimePicker
+                  value={newDate}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(_event, selected) => {
+                    if (Platform.OS === 'android') setShowDatePicker(false);
+                    if (selected) setNewDate(selected);
+                  }}
+                  minimumDate={new Date()}
+                  style={styles.nativePicker}
+                />
+              )}
               <Text style={styles.fieldLabel}>{t(language, 'addRaceTypeLabel')}</Text>
               <View style={styles.typeChipsRow}>
                 {(['cestna', 'kronometer', 'vzpon'] as const).map(key => (
@@ -517,6 +534,21 @@ const styles = StyleSheet.create({
     paddingVertical:   12,
     fontSize:          15,
     color:             Colors.textPrimary,
+  },
+  dateButton: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'space-between',
+  },
+  dateButtonOpen: {
+    borderColor: Colors.brandGreen,
+  },
+  dateButtonText: {
+    fontSize: 15,
+    color:    Colors.textPrimary,
+  },
+  nativePicker: {
+    marginTop: 4,
   },
   submitBtn: {
     backgroundColor: Colors.brandGreen,

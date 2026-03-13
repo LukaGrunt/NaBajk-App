@@ -86,9 +86,16 @@ export function StoryOverlay({ type, route, climb, groupRide }: StoryOverlayProp
       </View>
 
       {/* footer */}
-      <Text style={styles.footer}>
-        {type === 'groupRide' ? 'nabajk.si' : 'Recorded with @NaBajk.si'}
-      </Text>
+      <View style={styles.footerContainer}>
+        <Text style={styles.footer}>
+          {type === 'groupRide' ? 'nabajk.si' : 'Recorded with @NaBajk.si'}
+        </Text>
+        <View style={styles.sponsorRow}>
+          <Image source={require('@/assets/images/partner-left.png')} style={styles.sponsorLogo} resizeMode="contain" />
+          <View style={styles.sponsorSep} />
+          <Image source={require('@/assets/images/partner-right.png')} style={styles.sponsorLogo} resizeMode="contain" />
+        </View>
+      </View>
     </LinearGradient>
   );
 }
@@ -332,9 +339,28 @@ const styles = StyleSheet.create({
   },
 
   /* footer */
+  footerContainer: {
+    alignItems: 'center',
+    gap:        8,
+  },
   footer: {
     color:         B.textSec,
     fontSize:      13,
     letterSpacing: 0.5,
+  },
+  sponsorRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           10,
+  },
+  sponsorSep: {
+    width:           1,
+    height:          20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  sponsorLogo: {
+    width:   72,
+    height:  20,
+    opacity: 0.75,
   },
 });

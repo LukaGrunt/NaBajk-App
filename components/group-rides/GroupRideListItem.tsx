@@ -49,9 +49,10 @@ export function GroupRideListItem({
             <Image source={{ uri: route.imageUrl || getPlaceholderImage(route.id) }} style={styles.previewImage} />
           )
         ) : (
-          <View style={styles.placeholderPreview}>
-            <FontAwesome name="bicycle" size={32} color={Colors.brandGreen} />
-          </View>
+          <Image
+            source={{ uri: getPlaceholderImage(groupRide.id) }}
+            style={styles.previewImage}
+          />
         )}
       </View>
 

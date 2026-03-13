@@ -128,3 +128,15 @@ CREATE TRIGGER update_group_rides_updated_at BEFORE UPDATE ON group_rides
 
 CREATE TRIGGER update_rsvps_updated_at BEFORE UPDATE ON group_ride_rsvps
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Group ride chat messages table
+-- Auto-cleanup: messages deleted 2h after ride starts (via app logic on listGroupRides)
+-- Cap: max 100 messages per ride (oldest purged on insert)
+CREATE TABLE group_ride_messages (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  group_ride_id UUID NOT NULL REFERENCES group_rides(id) ON DELETE CASCADE,
+  user_name TEXT NOT NULL,
+  message TEXT NOT NULL CHECK (char_length(message) <= 500),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_messages_group_ride ON group_ride_messages(group_ride_id, created_at);

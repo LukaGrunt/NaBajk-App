@@ -64,14 +64,16 @@ export function computeElevationProfileFromPoints(
   points: RecordedPoint[],
   distanceKm: number
 ): number[] {
+  const pts = points.filter(p => p.alt != null);
+  if (pts.length < 2) return [];
+
   const numBars = Math.max(10, Math.round(distanceKm));
-  const segmentSize = distanceKm / numBars; // km per segment
 
   // Build cumulative distances array
   const cumDist: number[] = [0];
-  for (let i = 1; i < points.length; i++) {
-    const prev = points[i - 1];
-    const curr = points[i];
+  for (let i = 1; i < pts.length; i++) {
+    const prev = pts[i - 1];
+    const curr = pts[i];
     cumDist.push(cumDist[i - 1] + haversineKm(prev.lat, prev.lng, curr.lat, curr.lng));
   }
   const totalDist = cumDist[cumDist.length - 1] || distanceKm;
@@ -80,13 +82,13 @@ export function computeElevationProfileFromPoints(
   for (let bar = 0; bar <= numBars; bar++) {
     const targetDist = (bar / numBars) * totalDist;
     // Find closest point
-    let closest = points[0];
+    let closest = pts[0];
     let minDiff = Math.abs(cumDist[0] - targetDist);
-    for (let i = 1; i < points.length; i++) {
+    for (let i = 1; i < pts.length; i++) {
       const diff = Math.abs(cumDist[i] - targetDist);
-      if (diff < minDiff) { minDiff = diff; closest = points[i]; }
+      if (diff < minDiff) { minDiff = diff; closest = pts[i]; }
     }
-    raw.push(closest.alt ?? 0);
+    raw.push(closest.alt!);
   }
 
   // 3-point smoothing on the sampled values to reduce bar spikiness

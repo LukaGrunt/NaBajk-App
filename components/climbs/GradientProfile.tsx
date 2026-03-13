@@ -2,12 +2,12 @@
  * GradientProfile — colour-coded SVG elevation/gradient chart.
  * Used in route detail (showLabels=true) and share card (showLabels=false).
  *
- * Colour scale by segment gradient %:
- *  0–3%  →  #00BF76  (brand green)
- *  3–5%  →  #AAEE00  (lime)
- *  5–7%  →  #FF9900  (orange)
- *  7–9%  →  #FF4400  (dark orange)
- *  9%+   →  #CC0000  (deep red)
+ * Colour scale by segment gradient % (Garmin standard 5-band):
+ *  <3%   →  #00BF76  (green)
+ *  3–6%  →  #AAEE00  (lime)
+ *  6–9%  →  #FF9900  (orange)
+ *  9–12% →  #FF4400  (red)
+ *  >12%  →  #CC0000  (dark red)
  */
 
 import React from 'react';
@@ -24,11 +24,11 @@ interface Props {
 }
 
 function gradientColor(pct: number): string {
-  if (pct < 3) return '#00BF76';
-  if (pct < 5) return '#AAEE00';
-  if (pct < 7) return '#FF9900';
-  if (pct < 9) return '#FF4400';
-  return '#CC0000';
+  if (pct < 3)  return '#00BF76'; // green   (<3%)
+  if (pct < 6)  return '#AAEE00'; // lime    (3–6%)
+  if (pct < 9)  return '#FF9900'; // orange  (6–9%)
+  if (pct < 12) return '#FF4400'; // red     (9–12%)
+  return '#CC0000';               // dark red (>12%)
 }
 
 export function GradientProfile({
@@ -176,49 +176,9 @@ export function GradientProfile({
               );
             })}
 
-            {/* Gradient % labels inside bars — every other if > 12 bars */}
-            {grads.map((grad, i) => {
-              if (numBars > 12 && i % 2 !== 0) return null;
-              const x = padL + i * barW + barW / 2;
-              const barH = Math.max(2, ((Math.max(profile[i], profile[i + 1]) - minElev) / elevRange) * chartH);
-              const y = padT + chartH - barH / 2;
-              if (barH < 14) return null;
-              return (
-                <SvgText
-                  key={i}
-                  x={x}
-                  y={y + 4}
-                  fontSize={8}
-                  fill="rgba(255,255,255,0.7)"
-                  textAnchor="middle"
-                >
-                  {Math.abs(grad).toFixed(1)}%
-                </SvgText>
-              );
-            })}
           </>
         )}
 
-        {/* Bar % labels for share card (showBarLabels=true, showLabels=false) */}
-        {!showLabels && showBarLabels && grads.map((grad, i) => {
-          if (numBars > 12 && i % 2 !== 0) return null;
-          const x = padL + i * barW + barW / 2;
-          const barH = Math.max(2, ((Math.max(profile[i], profile[i + 1]) - minElev) / elevRange) * chartH);
-          const y = padT + chartH - barH / 2;
-          if (barH < 14) return null;
-          return (
-            <SvgText
-              key={i}
-              x={x}
-              y={y + 4}
-              fontSize={8}
-              fill="rgba(255,255,255,0.7)"
-              textAnchor="middle"
-            >
-              {Math.abs(grad).toFixed(1)}%
-            </SvgText>
-          );
-        })}
 
       </Svg>
     </View>

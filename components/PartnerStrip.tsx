@@ -119,15 +119,8 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface1,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    gap: 10,
+    overflow: 'hidden',
   },
   iconContainer: {
     width: 40,
@@ -147,7 +140,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   logoImage: {
-    flex: 1,
-    height: 40,
+    width: '100%',
+    height: 60,
   },
 });

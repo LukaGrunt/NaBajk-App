@@ -22,7 +22,8 @@
     "production": {
       "ios": {
         "appleId": "ravnikar.luka@gmail.com",
-        "appleTeamId": "43359GLTZ9"
+        "appleTeamId": "43359GLTZ9",
+        "ascAppId": "6758962078"
       }
     }
   }

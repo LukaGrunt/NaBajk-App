@@ -223,6 +223,13 @@ export const ShareCard = forwardRef<View, Props>(
         <View style={styles.divider} />
         <Text style={styles.rideName} numberOfLines={2}>{rideName}</Text>
 
+        {/* Sponsor logos */}
+        <View style={styles.sponsorRow}>
+          <Image source={require('@/assets/images/partner-left.png')} style={styles.sponsorLogo} resizeMode="contain" />
+          <View style={styles.sponsorSep} />
+          <Image source={require('@/assets/images/partner-right.png')} style={styles.sponsorLogo} resizeMode="contain" />
+        </View>
+
       </View>
     );
   }
@@ -315,6 +322,21 @@ const styles = StyleSheet.create({
     color:      Colors.textSecondary,
     textAlign:  'center',
     lineHeight: 26,
+  },
+  sponsorRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    marginTop:     20,
+    gap:           12,
+  },
+  sponsorSep: {
+    width:           1,
+    height:          24,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  sponsorLogo: {
+    width:  80,
+    height: 24,
   },
   // ── Climb stats ──
   gradBadge: {
