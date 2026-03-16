@@ -11,11 +11,13 @@ import {
 } from 'react-native';
 import { AuthLanguage } from './LanguageToggle';
 
+
 interface EmailSignInModalProps {
   visible: boolean;
   language: AuthLanguage;
   onClose: () => void;
   onSubmit: (email: string) => Promise<void>;
+  onSubmitWithPassword?: (email: string, password: string) => Promise<void>;
 }
 
 const strings = {
@@ -41,8 +43,10 @@ const strings = {
   },
 };
 
-export function EmailSignInModal({ visible, language, onClose, onSubmit }: EmailSignInModalProps) {
+export function EmailSignInModal({ visible, language, onClose, onSubmit, onSubmitWithPassword }: EmailSignInModalProps) {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [testerMode, setTesterMode] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -55,6 +59,11 @@ export function EmailSignInModal({ visible, language, onClose, onSubmit }: Email
     return emailRegex.test(email);
   };
 
+  const handleTesterFill = () => {
+    setTesterMode(true);
+    setError('');
+  };
+
   const handleSubmit = async () => {
     setError('');
 
@@ -65,10 +74,14 @@ export function EmailSignInModal({ visible, language, onClose, onSubmit }: Email
 
     setLoading(true);
     try {
-      await onSubmit(email.trim());
-      setSentToEmail(email.trim());
-      setEmailSent(true);
-      setEmail('');
+      if (testerMode && onSubmitWithPassword) {
+        await onSubmitWithPassword(email.trim(), password);
+      } else {
+        await onSubmit(email.trim());
+        setSentToEmail(email.trim());
+        setEmailSent(true);
+        setEmail('');
+      }
     } catch (err: unknown) {
       console.error('Email sign in error:', err);
       const message = err instanceof Error ? err.message : '';
@@ -80,6 +93,8 @@ export function EmailSignInModal({ visible, language, onClose, onSubmit }: Email
 
   const handleClose = () => {
     setEmail('');
+    setPassword('');
+    setTesterMode(false);
     setError('');
     setEmailSent(false);
     setSentToEmail('');
@@ -113,7 +128,12 @@ export function EmailSignInModal({ visible, language, onClose, onSubmit }: Email
                 </>
               ) : (
                 <>
-                  <Text style={styles.title}>{t.title}</Text>
+                  <View style={styles.titleRow}>
+                    <Text style={styles.title}>{t.title}</Text>
+                    <TouchableOpacity onPress={handleTesterFill} activeOpacity={0.7}>
+                      <Text style={styles.testerButton}>Testers</Text>
+                    </TouchableOpacity>
+                  </View>
 
                   <TextInput
                     style={[styles.input, error ? styles.inputError : null]}
@@ -129,6 +149,19 @@ export function EmailSignInModal({ visible, language, onClose, onSubmit }: Email
                     autoCorrect={false}
                     autoFocus
                   />
+
+                  {testerMode && (
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Password"
+                      placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                  )}
 
                   {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -173,12 +206,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
   title: {
     fontSize: 20,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 20,
-    textAlign: 'center',
+  },
+  testerButton: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.35)',
+    fontWeight: '500',
   },
   successIcon: {
     fontSize: 48,

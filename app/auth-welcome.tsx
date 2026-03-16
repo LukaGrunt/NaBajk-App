@@ -14,6 +14,7 @@ import { LogoTile } from '@/components/auth/LogoTile';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { EmailSignInModal } from '@/components/auth/EmailSignInModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const strings = {
@@ -76,6 +77,11 @@ export default function AuthWelcomeScreen() {
 
   const handleEmailSignIn = async (email: string) => {
     await signInWithEmail(email);
+  };
+
+  const handlePasswordSignIn = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
   };
 
   if (!fontsLoaded) {
@@ -156,6 +162,7 @@ export default function AuthWelcomeScreen() {
         language={authLang}
         onClose={() => setEmailModalVisible(false)}
         onSubmit={handleEmailSignIn}
+        onSubmitWithPassword={handlePasswordSignIn}
       />
     </View>
   );
