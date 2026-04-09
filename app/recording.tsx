@@ -69,13 +69,11 @@ export default function RecordRideScreen() {
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-start when ready + idle; recover from error state
+  // Auto-start when ready + idle
   useEffect(() => {
     if (phase !== 'ready') return;
     if (state.status === 'idle') {
       start();
-    } else if (state.status === 'error') {
-      reset(); // → sets status to 'idle' → triggers this effect again → start()
     }
   }, [phase, state.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -227,6 +225,22 @@ export default function RecordRideScreen() {
         <View style={styles.center}>
           <Text style={styles.permText}>{t(language, 'recordPermissionDenied')}</Text>
           <Pressable style={[styles.greenBtn, styles.retryMargin]} onPress={doPermCheck}>
+            <Text style={styles.greenBtnText}>{t(language, 'recordPermissionRetry')}</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ── GPS error (start failed) ──────────────────────────────────────────────
+
+  if (phase === 'ready' && state.status === 'error') {
+    return (
+      <SafeAreaView style={styles.root}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.center}>
+          <Text style={styles.permText}>{t(language, 'recordGpsError')}</Text>
+          <Pressable style={[styles.greenBtn, styles.retryMargin]} onPress={() => { reset(); }}>
             <Text style={styles.greenBtnText}>{t(language, 'recordPermissionRetry')}</Text>
           </Pressable>
         </View>

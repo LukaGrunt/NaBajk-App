@@ -10,7 +10,7 @@
 import Share, { Social } from 'react-native-share';
 import * as Sharing from 'expo-sharing';
 
-const FB_APP_ID = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID ?? '';
+const FB_APP_ID = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID ?? '820735547692883';
 
 // Story canvas background (matches StoryOverlay B.bg)
 const STORY_BG = '#0A0A0B';
@@ -21,10 +21,12 @@ export type ShareResult = 'success' | 'cancelled' | 'not_installed' | 'error';
 
 export async function shareToInstagramStories(pngPath: string): Promise<ShareResult> {
   try {
+    // RCTConvert NSURL on iOS requires a full file:// URI to reliably load the image
+    const imagePath = pngPath.startsWith('file://') ? pngPath : 'file://' + pngPath;
     await Share.shareSingle({
       social:                Social.InstagramStories,
       appId:                 FB_APP_ID,
-      backgroundImage:       pngPath,
+      backgroundImage:       imagePath,
       backgroundTopColor:    STORY_BG,
       backgroundBottomColor: STORY_BG,
     });
@@ -41,10 +43,11 @@ export async function shareToInstagramStories(pngPath: string): Promise<ShareRes
 
 export async function shareToFacebookStories(pngPath: string): Promise<ShareResult> {
   try {
+    const imagePath = pngPath.startsWith('file://') ? pngPath : 'file://' + pngPath;
     await Share.shareSingle({
       social:          Social.FacebookStories,
       appId:           FB_APP_ID,
-      backgroundImage: pngPath,
+      backgroundImage: imagePath,
     });
     return 'success';
   } catch (e: any) {

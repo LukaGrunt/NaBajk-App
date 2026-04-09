@@ -137,6 +137,12 @@ export async function startRecording(): Promise<void> {
 
   // Background GPS — continues when screen is off
   try {
+    // Clear any stale task left from a previous session (e.g. app killed mid-recording)
+    const alreadyRunning = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+    if (alreadyRunning) {
+      await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+    }
+
     await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
       accuracy:                         Location.Accuracy.Balanced,
       timeInterval:                     4000,

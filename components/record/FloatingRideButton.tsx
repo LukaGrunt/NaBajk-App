@@ -14,8 +14,11 @@ import Animated, {
   withDelay,
   Easing,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/Colors';
-import { useRideRecorder, startRecording } from '@/lib/rideRecorder';
+import { useRideRecorder } from '@/lib/rideRecorder';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { t } from '@/constants/i18n';
 import { AnimatedRing } from './AnimatedRing';
 
 /**
@@ -29,6 +32,8 @@ import { AnimatedRing } from './AnimatedRing';
  * - Long press / tap when idle: shows Record vs Upload GPX menu
  */
 export function FloatingRideButton() {
+  const insets = useSafeAreaInsets();
+  const { language } = useLanguage();
   const router = useRouter();
   const { state } = useRideRecorder();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -165,7 +170,6 @@ export function FloatingRideButton() {
       closeMenu(() => router.replace('/ride-summary'));
       return;
     }
-    startRecording(); // fire-and-forget — recording screen handles first-launch / permission flow
     closeMenu(() => router.push('/recording'));
   };
 
@@ -179,7 +183,6 @@ export function FloatingRideButton() {
 
   const handleClimbConfirm = () => {
     setClimbConfirmVisible(false);
-    startRecording();
     router.push('/recording?isClimb=true');
   };
 
@@ -232,16 +235,14 @@ export function FloatingRideButton() {
       <Modal transparent visible={climbConfirmVisible} statusBarTranslucent animationType="fade">
         <View style={styles.confirmBackdrop}>
           <View style={styles.confirmCard}>
-            <Text style={styles.confirmTitle}>Snemaš vzpon</Text>
-            <Text style={styles.confirmBody}>
-              {'Snemaj samo vzpon — od dna do vrha.\n\nPrimer: Vršič (24 km, 1.200 m↑) — začneš pri Soči in snemaš do vrha pasov. Ko dosežeš vrh, ustavi snemanje.'}
-            </Text>
+            <Text style={styles.confirmTitle}>{t(language, 'climbRecordTitle')}</Text>
+            <Text style={styles.confirmBody}>{t(language, 'climbRecordBody')}</Text>
             <View style={styles.confirmButtons}>
               <Pressable style={styles.confirmCancel} onPress={() => setClimbConfirmVisible(false)}>
-                <Text style={styles.confirmCancelText}>Prekliči</Text>
+                <Text style={styles.confirmCancelText}>{t(language, 'cancel')}</Text>
               </Pressable>
               <Pressable style={styles.confirmStart} onPress={handleClimbConfirm}>
-                <Text style={styles.confirmStartText}>Začni vzpon</Text>
+                <Text style={styles.confirmStartText}>{t(language, 'climbConfirmBtn')}</Text>
               </Pressable>
             </View>
           </View>
@@ -267,9 +268,9 @@ export function FloatingRideButton() {
             {/* Hint text */}
             <Animated.View style={[styles.hintContainer, card1AnimStyle]}>
               <Text style={styles.hintText}>
-                {'GPX datoteka na računalniku? Pot naloži prek '}
+                {t(language, 'fabHintPrefix')}
                 <Text style={styles.hintLink}>www.nabajk.si</Text>
-                {' — podpiramo oba načina.'}
+                {t(language, 'fabHintSuffix')}
               </Text>
             </Animated.View>
 
@@ -289,9 +290,9 @@ export function FloatingRideButton() {
                   />
                   <View style={styles.cardGlowBorder} />
                   <FontAwesome name="bicycle" size={38} color="#FFFFFF" style={styles.cardIcon} />
-                  <Text style={styles.cardTitle}>Snemaj</Text>
+                  <Text style={styles.cardTitle}>{t(language, 'fabRecord')}</Text>
                   <Text style={[styles.cardSubtitle, { color: 'rgba(255,255,255,0.7)' }]}>
-                    Začni vožnjo
+                    {t(language, 'fabRecordSubtitle')}
                   </Text>
                 </Pressable>
               </Animated.View>
@@ -310,9 +311,9 @@ export function FloatingRideButton() {
                   />
                   <View style={styles.cardGlowBorder} />
                   <FontAwesome name="area-chart" size={38} color="#FFFFFF" style={styles.cardIcon} />
-                  <Text style={styles.cardTitle}>Vzpon</Text>
+                  <Text style={styles.cardTitle}>{t(language, 'fabClimb')}</Text>
                   <Text style={[styles.cardSubtitle, { color: 'rgba(255,255,255,0.7)' }]}>
-                    Snemaj vzpon
+                    {t(language, 'fabClimbSubtitle')}
                   </Text>
                 </Pressable>
               </Animated.View>
@@ -326,8 +327,8 @@ export function FloatingRideButton() {
               >
                 <View style={styles.uploadGlowBorder} />
                 <FontAwesome name="upload" size={28} color={Colors.brandGreen} style={styles.cardIcon} />
-                <Text style={styles.cardTitle}>Naloži GPX</Text>
-                <Text style={styles.cardSubtitle}>Uvozi pot</Text>
+                <Text style={styles.cardTitle}>{t(language, 'fabUploadGpx')}</Text>
+                <Text style={styles.cardSubtitle}>{t(language, 'fabUploadSubtitle')}</Text>
               </Pressable>
             </Animated.View>
           </View>
@@ -335,7 +336,7 @@ export function FloatingRideButton() {
       </Modal>
 
       {/* The FAB */}
-      <View style={styles.container}>
+      <View style={[styles.container, { bottom: insets.bottom + 24 }]}>
         {/* Layer 3: Largest glow */}
         <Animated.View
           style={[styles.glow, styles.glowLayer3, isRecording && styles.glowRed, animatedBreathingStyle]}
@@ -374,7 +375,7 @@ export function FloatingRideButton() {
             <View style={styles.contentLayer}>
               <View style={[styles.border, isRecording && styles.borderRed]} />
               <FontAwesome
-                name={menuOpen ? 'times' : isRecording ? 'stop-circle' : 'bicycle'}
+                name={menuOpen ? 'times' : isRecording ? 'stop' : 'bicycle'}
                 size={28}
                 color={Colors.textPrimary}
               />
@@ -399,7 +400,6 @@ const GLOW_RED = 'rgba(239, 68, 68, ';
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 24,
     left: '50%',
     marginLeft: -BUTTON_SIZE / 2,
     width: BUTTON_SIZE,

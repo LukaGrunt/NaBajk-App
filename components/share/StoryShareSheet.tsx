@@ -30,9 +30,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { captureRef } from 'react-native-view-shot';
 import {
   shareToInstagramStories,
-  shareToFacebookStories,
   shareFallback,
-  ShareResult,
 } from '@/lib/share/shareToStories';
 import Colors from '@/constants/Colors';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -100,16 +98,23 @@ export function StoryShareSheet({
     transform: [{ translateY: contentY.value }],
   }));
 
-  async function attempt(fn: (path: string) => Promise<ShareResult>, isFallback = false) {
+  async function handleInstagram() {
     if (!capturedUri) return;
     setLoading(true);
     try {
-      const result = await fn(capturedUri);
-      if ((result === 'not_installed' || result === 'error') && !isFallback) {
-        await shareFallback(capturedUri);
-      } else if (result === 'success') {
-        onSkip();
-      }
+      const result = await shareToInstagramStories(capturedUri);
+      if (result === 'success') onSkip();
+      // no fallback — user can tap "Share elsewhere" for system share
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSystemShare() {
+    if (!capturedUri) return;
+    setLoading(true);
+    try {
+      await shareFallback(capturedUri);
     } finally {
       setLoading(false);
     }
@@ -159,7 +164,7 @@ export function StoryShareSheet({
           <View style={styles.cardsRow}>
             <Pressable
               style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-              onPress={() => !loading && attempt(shareToInstagramStories)}
+              onPress={() => !loading && handleInstagram()}
               disabled={loading || !capturedUri}
             >
               <LinearGradient
@@ -177,7 +182,7 @@ export function StoryShareSheet({
           {/* System share fallback */}
           <Pressable
             style={({ pressed }) => [styles.moreBtn, pressed && styles.cardPressed]}
-            onPress={() => !loading && attempt(shareFallback, true)}
+            onPress={() => !loading && handleSystemShare()}
             disabled={loading || !capturedUri}
           >
             <View style={styles.moreIconBox}>

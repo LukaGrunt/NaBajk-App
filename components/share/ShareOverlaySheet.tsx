@@ -7,22 +7,16 @@
  * the animation completes, making every wrapped button unresponsive.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Modal, View, Text, StyleSheet,
-  Pressable, ActivityIndicator, Image,
+  Pressable, ActivityIndicator, Image, Animated,
 } from 'react-native';
-import Animated, {
-  useSharedValue, useAnimatedStyle,
-  withSpring, withTiming,
-} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import {
   shareToInstagramStories,
-  shareToFacebookStories,
   shareFallback,
-  ShareResult,
 } from '@/lib/share/shareToStories';
 import { t, Language } from '@/constants/i18n';
 
@@ -37,37 +31,43 @@ export function ShareOverlaySheet({ visible, pngPath, language, onClose }: Share
   const [loading, setLoading] = useState(false);
 
   // Backdrop fades in independently
-  const backdropOp = useSharedValue(0);
+  const backdropOp = useRef(new Animated.Value(0)).current;
   // Content slides up — NO opacity animation (opacity:0 blocks iOS touches at native layer)
-  const contentY  = useSharedValue(80);
+  const contentY   = useRef(new Animated.Value(80)).current;
 
   useEffect(() => {
     if (visible) {
-      backdropOp.value = withTiming(1, { duration: 250 });
-      contentY.value   = withSpring(0, { damping: 18, stiffness: 200 });
+      Animated.parallel([
+        Animated.timing(backdropOp, { toValue: 1, duration: 250, useNativeDriver: true }),
+        Animated.spring(contentY,   { toValue: 0, damping: 18, stiffness: 200, useNativeDriver: true }),
+      ]).start();
     } else {
-      backdropOp.value = withTiming(0, { duration: 180 });
-      contentY.value   = 80;
+      Animated.timing(backdropOp, { toValue: 0, duration: 180, useNativeDriver: true }).start();
+      contentY.setValue(80);
       setLoading(false); // always reset so re-open is clean
     }
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: backdropOp.value }));
-  const contentStyle  = useAnimatedStyle(() => ({
-    transform: [{ translateY: contentY.value }],
-  }));
+  const backdropStyle = { opacity: backdropOp };
+  const contentStyle  = { transform: [{ translateY: contentY }] };
 
-  async function attempt(fn: (path: string) => Promise<ShareResult>, isFallback = false) {
+  async function handleInstagram() {
     if (!pngPath) return;
     setLoading(true);
     try {
-      const result = await fn(pngPath);
-      if ((result === 'not_installed' || result === 'error') && !isFallback) {
-        // native module unavailable or threw unexpectedly → open system share
-        await shareFallback(pngPath);
-      } else if (result === 'success') {
-        onClose();
-      }
+      const result = await shareToInstagramStories(pngPath);
+      if (result === 'success') onClose();
+      // no fallback — user can tap "Deli drugje" for system share
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSystemShare() {
+    if (!pngPath) return;
+    setLoading(true);
+    try {
+      await shareFallback(pngPath);
     } finally {
       setLoading(false);
     }
@@ -103,7 +103,7 @@ export function ShareOverlaySheet({ visible, pngPath, language, onClose }: Share
           <View style={styles.cardsRow}>
             <Pressable
               style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-              onPress={() => !loading && attempt(shareToInstagramStories)}
+              onPress={() => !loading && handleInstagram()}
               disabled={loading}
             >
               <LinearGradient
@@ -121,7 +121,7 @@ export function ShareOverlaySheet({ visible, pngPath, language, onClose }: Share
           {/* System share */}
           <Pressable
             style={({ pressed }) => [styles.moreBtn, pressed && styles.cardPressed]}
-            onPress={() => !loading && attempt(shareFallback, true)}
+            onPress={() => !loading && handleSystemShare()}
             disabled={loading}
           >
             <View style={styles.moreIconBox}>

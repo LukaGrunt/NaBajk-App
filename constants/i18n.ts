@@ -124,7 +124,7 @@ export const strings = {
     // Group Rides
     groupRides: 'Skupinske',
     groupRideTitle: 'Skupinske vožnje',
-    createGroupRide: 'Ustvari skupinsko',
+    createGroupRide: 'Ustvari skupinsko vožnjo',
     upcomingRides: 'Prihajajoče',
     noGroupRides: 'Ni skupinskih voženj. Ustvari prvo.',
 
@@ -142,6 +142,7 @@ export const strings = {
     recordDisclaimer: 'Vozite na lastno odgovornost. Spoštujte prometna pravila. Podatki GPS so lahko nepnatančni.',
     recordDisclaimerAccept: 'Razumem, nadaljuj',
     recordPermissionDenied: 'NaBajk potrebuje vašo lokacijo za snemanje vožnje. Prosim dovoljte dostop.',
+    recordGpsError: 'GPS ni bilo mogoče zagnati. Preverite dovoljenja in poskusite znova.',
     recordPermissionRetry: 'Dovoli lokacijo',
     recordWaitingGPS: 'Čaka GPS signal…',
     recordStart: 'ZAČNI',
@@ -252,6 +253,16 @@ export const strings = {
     climbConfirmBtn: 'Začni vzpon',
     navigateToStart: 'Navigiraj do začetka',
     avgGradient: 'povp. naklon',
+
+    // FAB menu
+    fabRecord: 'Snemaj',
+    fabRecordSubtitle: 'Začni vožnjo',
+    fabClimb: 'Vzpon',
+    fabClimbSubtitle: 'Snemaj vzpon',
+    fabUploadGpx: 'Naloži GPX',
+    fabUploadSubtitle: 'Uvozi pot',
+    fabHintPrefix: 'GPX datoteka na računalniku? Pot naloži prek ',
+    fabHintSuffix: ' — podpiramo oba načina.',
 
     // Onboarding walkthrough
     onboardFabTitle: 'Zeleni gumb',
@@ -453,7 +464,7 @@ export const strings = {
     // Group Rides
     groupRides: 'Group rides',
     groupRideTitle: 'Group Rides',
-    createGroupRide: 'Create ride',
+    createGroupRide: 'Create group ride',
     upcomingRides: 'Upcoming',
     noGroupRides: 'No group rides. Create the first.',
 
@@ -471,6 +482,7 @@ export const strings = {
     recordDisclaimer: 'You ride at your own risk. Follow road laws. GPS data may be inaccurate.',
     recordDisclaimerAccept: 'I understand, continue',
     recordPermissionDenied: 'NaBajk needs your location to record rides. Please allow location access.',
+    recordGpsError: 'Could not start GPS. Please check permissions and try again.',
     recordPermissionRetry: 'Allow Location',
     recordWaitingGPS: 'Waiting for GPS…',
     recordStart: 'START',
@@ -581,6 +593,16 @@ export const strings = {
     climbConfirmBtn: 'Start climb',
     navigateToStart: 'Navigate to start',
     avgGradient: 'avg gradient',
+
+    // FAB menu
+    fabRecord: 'Record',
+    fabRecordSubtitle: 'Start ride',
+    fabClimb: 'Climb',
+    fabClimbSubtitle: 'Record climb',
+    fabUploadGpx: 'Upload GPX',
+    fabUploadSubtitle: 'Import route',
+    fabHintPrefix: 'GPX file on your computer? Upload the route at ',
+    fabHintSuffix: ' — we support both ways.',
 
     // Onboarding walkthrough
     onboardFabTitle: 'Green button',
