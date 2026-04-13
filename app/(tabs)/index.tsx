@@ -58,7 +58,7 @@ const PARTNERS: Partner[] = [
     id: 'a2u',
     name: 'A2U',
     valueProp: { sl: 'Kolesarska oprema', en: 'Cycling gear' },
-    url: 'https://www.a2u.si/kolesarstvo/',
+    url: 'https://www.a2u.si',
     logoImage: require('@/assets/images/partner-right.png'),
     category: { sl: 'SERVIS / TRGOVINA', en: 'SERVICE / SHOP' },
   },

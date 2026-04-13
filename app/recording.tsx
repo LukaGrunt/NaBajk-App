@@ -16,6 +16,7 @@ import Animated, {
   Easing,
   interpolate,
   Extrapolation,
+  cancelAnimation,
 } from 'react-native-reanimated';
 import FontAwesome         from '@expo/vector-icons/FontAwesome';
 import Colors              from '@/constants/Colors';
@@ -107,6 +108,16 @@ export default function RecordRideScreen() {
         withTiming(0.3, { duration: 1000 }),
       ), -1, false
     );
+
+    return () => {
+      cancelAnimation(ring1Scale);
+      cancelAnimation(ring1Opacity);
+      cancelAnimation(ring2Scale);
+      cancelAnimation(ring2Opacity);
+      cancelAnimation(ring3Scale);
+      cancelAnimation(ring3Opacity);
+      cancelAnimation(stopGlow);
+    };
   }, [state.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── helpers ───────────────────────────────────────────────────────────────
