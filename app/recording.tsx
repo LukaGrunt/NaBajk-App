@@ -128,14 +128,11 @@ export default function RecordRideScreen() {
   }
 
   async function doPermCheck() {
-    // Foreground (required)
+    // Foreground (required) — always request if not granted so dialog appears on retry
     const { status } = await Location.getForegroundPermissionsAsync();
-    if (status === 'undetermined') {
+    if (status !== 'granted') {
       const { status: s2 } = await Location.requestForegroundPermissionsAsync();
       if (s2 !== 'granted') { setPhase('permDenied'); return; }
-    } else if (status !== 'granted') {
-      setPhase('permDenied');
-      return;
     }
 
     // Background (optional — recording works without it, just won't update while screen is off)
