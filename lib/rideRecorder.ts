@@ -175,9 +175,9 @@ export function stopRecording(reason: 'user' | 'background' = 'user'): void {
 
   if (tickTimer !== null) { clearInterval(tickTimer); tickTimer = null; }
 
-  Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK).then((isRunning) => {
-    if (isRunning) Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
-  });
+  Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK)
+    .then((isRunning) => { if (isRunning) return Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK); })
+    .catch(() => {}); // best-effort — ignore errors if task already stopped
 
   uiState = {
     ...uiState,

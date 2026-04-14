@@ -78,6 +78,14 @@ export default function RecordRideScreen() {
     }
   }, [phase, state.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Navigate to ride-summary after user stops — decoupled from Alert callback
+  // to avoid Android race condition between setState + router.replace
+  useEffect(() => {
+    if (state.status === 'stopped' && state.stoppedReason === 'user') {
+      router.replace(isClimb ? '/ride-summary?isClimb=true' : '/ride-summary');
+    }
+  }, [state.status, state.stoppedReason]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Sonar + stop-glow animations (only while recording)
   useEffect(() => {
     if (state.status !== 'recording') return;
@@ -152,8 +160,7 @@ export default function RecordRideScreen() {
       [
         { text: t(language, 'cancel'), style: 'cancel' },
         { text: t(language, 'recordConfirmStopBtn'), style: 'destructive', onPress: () => {
-          stop();
-          router.replace(isClimb ? '/ride-summary?isClimb=true' : '/ride-summary');
+          stop(); // navigation handled by useEffect watching stoppedReason
         }},
       ]
     );
