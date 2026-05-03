@@ -144,12 +144,25 @@ export async function startRecording(): Promise<void> {
     }
 
     await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
-      accuracy:                         Location.Accuracy.Balanced,
+      // High = real GPS chip on Android (~10 m). Balanced previously meant
+      // PRIORITY_BALANCED_POWER_ACCURACY (~100 m, Wi-Fi/cell), which combined
+      // with MAX_ACCURACY_M=40 caused nearly every Android point to be rejected.
+      accuracy:                         Location.Accuracy.High,
       timeInterval:                     4000,
       distanceInterval:                 15,
-      showsBackgroundLocationIndicator: true,   // required for App Store compliance
+      showsBackgroundLocationIndicator: true,   // iOS — App Store compliance
       activityType:                     Location.LocationActivityType.Fitness,
       pausesUpdatesAutomatically:       false,  // don't pause at red lights
+      // Android — without a foreground service notification, the OS throttles
+      // or kills location updates as soon as the screen locks (Doze mode) on
+      // Android 8+. Passing this object causes expo-location to start a typed
+      // FOREGROUND_SERVICE_LOCATION service, which keeps the task alive and
+      // shows a persistent notification (required by Google Play policy).
+      foregroundService: {
+        notificationTitle: 'NaBajk',
+        notificationBody:  'Snemanje vožnje aktivno',
+        notificationColor: '#00BC7C',
+      },
     });
 
     // Guard: if stop() was called while awaiting startup, clean up
