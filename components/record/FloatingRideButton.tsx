@@ -42,7 +42,9 @@ export function FloatingRideButton() {
 
   // Derive recording state from singleton
   const isRecording = state.status === 'recording';
-  const elapsedSeconds = state.elapsedSeconds;
+  // Show moving time on the FAB badge so it matches the cockpit timer
+  // (auto-paused when stopped > 30s). Falls back to elapsed if no points yet.
+  const elapsedSeconds = state.movingSeconds > 0 ? state.movingSeconds : state.elapsedSeconds;
 
   // FAB animation values
   const scale = useSharedValue(1);

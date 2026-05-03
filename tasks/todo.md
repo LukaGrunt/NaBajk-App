@@ -675,3 +675,311 @@ EAS production environment had NO env vars — every build was using `placeholde
 **`components/share/StoryShareSheet.tsx`** — Added `useLanguage` + `t` imports. 5 strings fixed.
 
 **`app/climbs.tsx`** — 1 string fixed.
+
+---
+
+# Fix: Remove RECORD_AUDIO permission (Google Play rejection)
+
+## Tasks
+- [x] Step 1: Add `["expo-av", { "microphonePermission": false }]` to `app.json` plugins
+- [x] Step 2: Rebuild for Android (`eas build --platform android --profile production`)
+- [ ] Step 3: Download new AAB and re-upload to Google Play Console
+
+## Review
+- `app.json`: Added `["expo-av", { "microphonePermission": false }]` to plugins — suppresses RECORD_AUDIO injection by expo-av's config plugin.
+- Build `versionCode 5` completed successfully: https://expo.dev/artifacts/eas/vMEzXSnqqFjQotgfWx4JQv.aab
+- Manual: download AAB and upload to Google Play Console.
+
+---
+
+# Apple Sign-In + Tester Button Fix (App Store Resubmission)
+
+## Tasks
+- [x] Step 1: Install expo-apple-authentication
+- [x] Step 2: app.json — add expo-apple-authentication plugin
+- [x] Step 3: contexts/AuthContext.tsx — add signInWithApple
+- [x] Step 4: components/auth/EmailSignInModal.tsx — add initialTesterMode prop, pre-fill creds, remove old hidden Testers button
+- [x] Step 5: app/auth-welcome.tsx — add Tester button (bottom-right, visible) + Apple auth button (iOS only)
+- [x] Step 6: Build and resubmit via EAS
+
+## Review
+- **expo-apple-authentication** installed and added to plugins
+- **AuthContext**: `signInWithApple` calls `AppleAuthentication.signInAsync` → `signInWithIdToken(provider: 'apple')`. Added to interface + value.
+- **EmailSignInModal**: Added `initialTesterMode` prop. When true, email/password pre-filled with `reviewer@nabajk.app` / `NaBajk2026!`, testerMode starts true. Removed the invisible "Testers" text button from title row.
+- **auth-welcome**: Added Apple `AuthButton` (iOS-only via `Platform.OS === 'ios'`) above Google button. Added visible "Tester" button absolutely positioned bottom-right (opacity 0.8, white text). Tapper opens a separate EmailSignInModal with `initialTesterMode` so credentials are pre-filled. ERR_CANCELED from Apple auth is silently ignored.
+- **Manual step needed**: Supabase Dashboard → Auth → Providers → Apple → set Client ID `com.nabajk.app`, save.
+
+---
+
+# Multi-fix: Partners, Instagram, Crash, Story logos
+
+## Tasks
+- [x] Fix 1: Partner button equal size — remove hardcoded aspectRatio, use fixed height 64 on both cards
+- [x] Fix 2: Instagram story direct open — strip `file://` prefix before passing to Share.shareSingle
+- [x] Fix 3: Group ride crash (Vector 2) — replace Reanimated in ShareOverlaySheet with RN Animated
+- [x] Fix 4: Story partner logos bigger + higher opacity in StoryOverlay footer
+
+## Review
+
+**`components/PartnerStrip.tsx`** — Removed `aspectRatio: 297/96` from `logoImage`, replaced with `height: 64`. Added `height: 64` to `card` style. Both partner cards now always render at the same fixed 64px height regardless of the actual PNG dimensions.
+
+**`lib/share/shareToStories.ts`** — Added `file://` prefix stripping in both `shareToInstagramStories` and `shareToFacebookStories`. `react-native-view-shot` returns `file:///path/...` but react-native-share on iOS expects the raw absolute path without the scheme prefix. The stripping is a one-liner applied before each `Share.shareSingle` call.
+
+**`components/share/ShareOverlaySheet.tsx`** — Replaced all Reanimated 4 primitives (`useSharedValue`, `useAnimatedStyle`, `withTiming`, `withSpring`) with React Native's built-in `Animated` API (`useRef(new Animated.Value(...))`, `Animated.timing`, `Animated.spring`). This eliminates the second Reanimated crash vector on group ride detail screen — Reanimated was running hooks on component mount (with `visible=false`), which conflicted with New Architecture initialization. Now uses `useNativeDriver: true` throughout so the animations still run on the native thread.
+
+**`components/share/StoryOverlay.tsx`** — Sponsor logo size increased from `72×20` → `96×28`, opacity raised from `0.75` → `0.92`. Logos are now noticeably larger and more visible in the story footer.
+
+---
+
+# Record Ride / Climb — Deep Audit & Rebuild Plan (May 2026)
+
+## Why this audit
+Users (especially on Android) report:
+- Recording feels broken — distance / GPS quality stuck on "waiting" or "poor"
+- Ride duration is sometimes wrong
+- Whole feature feels unreliable enough that Luka was considering rebuilding it
+- Open question: is MapLibre / the free map stack to blame?
+
+## TL;DR
+**No, the map stack is not the problem.** GPS recording (`expo-location` + OS APIs) and map rendering (MapLibre + tile provider) are independent systems. GPS is free on both iOS and Android via the OS — Apple/Google do not charge to read the GPS chip, and that has never changed.
+
+The bugs are 100% in our recorder code. Architecture is fine. Three concrete root causes plus a few smaller issues. Phase-1 fix is one file, ~15 lines. Phase-2 (persistence) is half a day. Phase-3 (polish to Strava-grade) is optional follow-up.
+
+## What I read
+- `lib/rideRecorder.ts` (singleton GPS module)
+- `app/recording.tsx` (cockpit screen)
+- `app/ride-summary.tsx` (post-ride screen)
+- `lib/rideStorage.ts` (AsyncStorage CRUD for saved rides)
+- `lib/elevationCorrection.ts` (DEM elevation post-process)
+- `repositories/routesRepo.ts` (elevation gain calc + Supabase upload)
+- `components/record/FloatingRideButton.tsx` (FAB)
+- `app/_layout.tsx` (recorder import at startup ✓)
+- `app.json` (expo-location plugin config)
+- `android/app/src/main/AndroidManifest.xml` (perms)
+- `android/app/build.gradle`
+- Git log of `lib/rideRecorder.ts` + `app/recording.tsx` (8 commits ever; 4 of them are Android-specific bandaids)
+
+## Architecture today (one-line summary)
+A module-level singleton holds `rawPoints[]`, `uiState`, and a `setInterval` tick timer. `expo-task-manager` registers a background task that pushes points into `rawPoints` whenever `expo-location` emits a batch. UI subscribes via `useRideRecorder()`. On stop, the recording screen captures `getPoints()` + `getState()` into local React state and navigates to ride-summary, which writes to AsyncStorage.
+
+The architecture is reasonable. The bugs are in the configuration and lifecycle, not the design.
+
+## Root causes — ordered by impact
+
+### RC-1 — GPS accuracy set to `Balanced` (the killer)
+**File:** `lib/rideRecorder.ts:147`
+
+```ts
+accuracy: Location.Accuracy.Balanced,
+```
+
+On Android, `Balanced` maps to `PRIORITY_BALANCED_POWER_ACCURACY` — Wi-Fi / cell-tower based, ~100 m typical accuracy, GPS chip not even prioritized. iOS's `Balanced` is closer to real GPS, which is why the same code "works on iPhone, broken on Android."
+
+Then `lib/rideRecorder.ts:39` filters:
+```ts
+const MAX_ACCURACY_M = 40;
+```
+
+Result on Android: nearly every point is rejected. Distance counter stays at 0.00, GPS dot stays orange/red, points list is empty. Symptom matches the user reports exactly.
+
+**Fix:** `Location.Accuracy.High` (≈10 m, real GPS, reasonable battery for cycling). `BestForNavigation` is overkill and burns battery.
+
+---
+
+### RC-2 — No Android foreground service config (the second killer)
+**File:** `lib/rideRecorder.ts:146-153`
+
+`app.json` has `isAndroidForegroundServiceEnabled: true` and the manifest has `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_LOCATION`. But expo-location only actually starts the foreground service if you pass a `foregroundService: { notificationTitle, notificationBody, notificationColor }` object to `startLocationUpdatesAsync` at runtime. We don't.
+
+Without it, on Android 8+ the OS treats this as plain background location, throttles updates to ~once per several minutes when the screen is off (Doze mode), and on Android 12+ may outright kill the service. The Expo issue tracker is full of "background location stops working on Android" reports, all of which resolve by adding the foregroundService block.
+
+**Fix:** add to the options object:
+```ts
+foregroundService: {
+  notificationTitle: 'NaBajk',
+  notificationBody:  'Snemanje vožnje aktivno',
+  notificationColor: '#00BC7C',
+},
+```
+
+---
+
+### RC-3 — All ride state lives in module memory (the persistence gap)
+**File:** `lib/rideRecorder.ts:59-66`
+
+```ts
+let uiState = { status: 'idle', ... };
+let rawPoints: RecordedPoint[] = [];
+let startTimestamp = 0;
+```
+
+These are JS module variables. The moment the OS kills the JS context — which Android does aggressively without RC-2's foreground service — everything is gone.
+
+Worse: when `expo-task-manager` later wakes a headless JS context to deliver a queued location batch, the module reloads with `uiState.status = 'idle'`, and the BG task callback drops every point at line 94:
+```ts
+if (uiState.status !== 'recording') return;
+```
+
+So even if RC-2 keeps the BG task alive, points are silently discarded on cold-launched task callbacks.
+
+**This is also the most plausible explanation for the "wrong duration" reports.** Two scenarios:
+1. App killed mid-ride → user reopens → fresh module → recorder is idle, ride lost. They blame the timer.
+2. App paused mid-ride (not killed) → JS thread suspended → `setInterval` doesn't fire → user opens app, sees stale time, sees few points. Distance is far behind duration. Looks like time is wrong; really, the *ratio* is wrong because BG points were thrown away by RC-2.
+
+**Fix:** persist points to SQLite (`expo-sqlite`, already in deps) directly from the BG task. Add a `nabajk_recording` row with `started_at`, `status`. On app start, check if a recording was active and offer to resume / save / discard.
+
+---
+
+### RC-4 — Live timer uses `setInterval`
+**File:** `lib/rideRecorder.ts:132-136`
+
+```ts
+tickTimer = setInterval(() => {
+  uiState = { ...uiState, elapsedSeconds: Math.floor((Date.now() - startTimestamp) / 1000) };
+  notify();
+}, 1000);
+```
+
+`setInterval` does not fire while the JS thread is suspended. The display value can drift while the screen is locked. The *final* `elapsedSeconds` on stop is recomputed from `Date.now() - startTimestamp` (line 185), so the saved duration is correct as long as `startTimestamp` survives — which it doesn't if the app gets killed (see RC-3).
+
+**Fix:** the wallclock-based stop computation is already correct; the visible timer just needs to recompute on every render or on screen focus. Trivial change in `recording.tsx`.
+
+---
+
+### RC-5 — Background permission is requested but the result is ignored
+**File:** `app/recording.tsx:152-156`
+
+```ts
+if (bgStatus === 'undetermined') {
+  await Location.requestBackgroundPermissionsAsync();
+  // Result intentionally ignored — recording starts regardless
+}
+```
+
+OK as a UX choice (recording-while-screen-on still works), but combined with RC-2/RC-3 means a user who declines bg perm gets a worse Android experience than they need to. With foreground service in place, the app can keep recording in the foreground service indefinitely without bg perm — but only if we set things up that way. Worth keeping but documenting clearly.
+
+---
+
+### Smaller findings
+- **`accept()` jitter filter** at line 75–86: with `Balanced` accuracy this also rejects real movement at slow climb pace because raw GPS noise is bigger than the 3 m jitter threshold. After RC-1 fix, this should behave correctly. Verify on a test ride.
+- **Final 1–3 points lost on stop**: `stopRecording` immediately flips `uiState.status = 'stopped'`; in-flight BG batches arriving milliseconds later are dropped at line 94. Minor.
+- **`MainApplication.kt` is stock**, no custom service handling. Fine.
+- **`versionCode 1` in build.gradle** — fine, EAS overrides it via `autoIncrement`.
+- **4 commits ahead of origin** locally + uncommitted changes in `app/recording.tsx` and others. Worth pushing to GitHub before more changes pile up.
+
+---
+
+## How Strava / Komoot / Garmin do it (the patterns worth borrowing)
+
+| Pattern | What pros do | Are we doing it? |
+|---|---|---|
+| GPS accuracy | High / Best for navigation | ❌ Balanced — RC-1 |
+| Foreground service | Persistent notification with elapsed time | ❌ Not started — RC-2 |
+| Point storage | Write each point to SQLite as it arrives | ❌ Module memory — RC-3 |
+| Crash recovery | "Resume previous ride?" prompt on app start | ❌ No |
+| Timer | Wallclock diff, recomputed on render | ⚠️ setInterval — RC-4 |
+| Auto-pause | Pause recording when speed < threshold for N seconds | ❌ No (and `pausesUpdatesAutomatically: false` opts out) |
+| Smoothing | Apply at end of ride, keep raw points | ✅ DEM correction in elevationCorrection.ts |
+| Filtering | Reject by accuracy + speed + jitter | ✅ Already doing this |
+| Elevation | DEM correction post-ride | ✅ SRTM 30m via Open Topo Data |
+
+We're closer than the user thinks. Two big gaps + one persistence gap.
+
+---
+
+## Fix plan (proposed, awaiting approval)
+
+### Phase 1 — The two killers (single file, ~15 lines)
+- [ ] **P1.1** `lib/rideRecorder.ts:147` — `Balanced` → `High`
+- [ ] **P1.2** `lib/rideRecorder.ts:146-153` — add `foregroundService: { notificationTitle, notificationBody, notificationColor }`
+- [ ] **P1.3** Test on a physical Android device: walk/ride a known distance, confirm GPS dot turns green, distance counter increments, screen-locked recording continues with persistent notification visible
+
+**Stops the bleeding for 95% of Android users. Should ship as a hotfix.**
+
+### Phase 2 — Persistence (1 file new, 2 files touched, ~half day)
+- [ ] **P2.1** New `lib/recordingStore.ts`: thin SQLite wrapper, `appendPoint()`, `getActiveRide()`, `clearActiveRide()`. Schema: one `recordings` row + many `points` rows.
+- [ ] **P2.2** `lib/rideRecorder.ts`: BG task callback writes each point to SQLite synchronously (await `db.runAsync`). On `startRecording` create a recording row; on `stopRecording` mark it complete.
+- [ ] **P2.3** `app/_layout.tsx`: on mount, check `getActiveRide()` — if found and last point is < 10 min old, route user to a "Resume / Save / Discard" screen. Otherwise clear it.
+- [ ] **P2.4** New `app/resume-ride.tsx`: simple 3-button screen.
+- [ ] **P2.5** Migrate `getPoints()` to read from SQLite so ride-summary always sees the full set.
+
+**Eliminates RC-3 entirely. After this, killing the app mid-ride is no longer catastrophic.**
+
+### Phase 3 — Polish to Strava-grade (optional, can defer)
+- [ ] **P3.1** Recompute `elapsedSeconds` on every render from `Date.now() - startTimestamp` so locked-screen drift disappears (RC-4)
+- [ ] **P3.2** Foreground-service notification shows live elapsed time (Android 14+ supports notification updates without OS spam)
+- [ ] **P3.3** Auto-pause logic: if speed < 1 m/s for 30s, pause distance accumulation (still tick time). Resume on movement. Strava behavior.
+- [ ] **P3.4** Migrate `tickTimer` to a Reanimated frame-callback for smoother timer updates while screen is on
+- [ ] **P3.5** Add a "ride debug" hidden screen accessible from settings: shows last N points, accuracy histogram, BG task fire count. Invaluable for diagnosing user reports.
+
+### Out of scope (not changing in this audit)
+- MapLibre / map rendering — not the problem
+- Tile provider — OpenFreeMap is fine and free
+- DEM elevation correction — already working
+- Filtering thresholds — revisit only if RC-1 fix doesn't restore healthy points
+- Auth / Google Sign-In / etc.
+
+---
+
+## Open questions for Luka
+1. Push the 4 unpushed commits + commit working-copy changes before Phase 1, or ship Phase 1 as part of the next batch?
+2. Phase 2 changes data shape — saved rides stay in AsyncStorage but ACTIVE recordings move to SQLite. OK?
+3. Phase 3.3 (auto-pause): worth doing for cyclists who stop at red lights? Or do users prefer raw time including stops?
+4. After Phase 1 + 2, do you want me to write a short "what changed and why" note for in-app release notes / a TestFlight announcement?
+
+---
+
+## Review
+
+All three phases implemented in a single Cowork session on 2026-05-03.
+
+### Phase 1 — shipped as commit `732fb08`
+Single-file edit to `lib/rideRecorder.ts`:
+- `Location.Accuracy.Balanced` → `Location.Accuracy.High` (the Android killer)
+- Added `foregroundService: { notificationTitle, notificationBody, notificationColor }` block so expo-location actually starts the typed `FOREGROUND_SERVICE_LOCATION` service on Android instead of silently relying on plain background-location (which gets killed in Doze)
+
+### Phase 2 — point persistence + recovery flow
+- **NEW** `lib/recordingStore.ts` — thin SQLite wrapper, two tables (`active_recording`, `active_points`), WAL mode for concurrent BG-task + foreground writes, all calls wrapped in try/catch so the recorder degrades to memory-only if SQLite ever fails to open
+- **`lib/rideRecorder.ts`**: BG task callback is now `async` and awaits `appendActivePoint()` per accepted point (also incidentally fixes the pre-existing `TaskManagerTaskExecutor` TS error). Added `hasRecoverableRecording()` and `hydrateFromActiveRecording()` exports for the recovery flow. `reset()` now also clears SQLite. `startRecording` accepts an `{ isClimb }` option and persists it.
+- **NEW** `app/resume-ride.tsx` — cold-start recovery screen with two buttons: **Save** (hydrates the recorder, routes to `/ride-summary` so the user names + saves the ride normally) and **Discard** (clears SQLite, routes home). Deliberately no "Resume" — there's already a gap in the GPS data when the OS killed the app, so resuming would produce a bad track.
+- **`app/index.tsx`**: cold start now calls `hasRecoverableRecording()` after auth + terms gate, routes to `/resume-ride` instead of `/(tabs)` if there's an unsaved ride.
+- **`app/_layout.tsx`**: registered the new `resume-ride` Stack screen (no header, like the cockpit).
+- **`constants/i18n.ts`**: 3 new keys in both `sl` and `en` (`recoverTitle`, `recoverBody`, `recoverSaveBtn`).
+
+### Phase 3 — moving time (auto-pause) + better timer semantics
+- **`RecordingState`** gained a `movingSeconds` field. `elapsedSeconds` is unchanged (wallclock since start, including stops); `movingSeconds` sums inter-point gaps that are < 30 s. So a 5-minute café stop produces a 5-minute gap, which is correctly excluded from moving time.
+- **`computeMovingSeconds()`** is a pure helper inside `rideRecorder.ts`. The BG task recomputes it every time a new point is accepted and on every tick; on stop it's recomputed once from the final point list.
+- **`app/recording.tsx`**: cockpit timer shows `state.movingSeconds`; avg-speed calculation also uses moving seconds so a long pause doesn't drag the number down.
+- **`app/ride-summary.tsx`**: the snapshot captured on mount now uses `movingSeconds` for `durSec` (with `elapsedSeconds` fallback if 0). The saved `SavedRide.durationSeconds` therefore reflects moving time, which is the standard cycling-app convention (Strava "Moving Time").
+- **`components/record/FloatingRideButton.tsx`**: FAB badge timer also reads `movingSeconds` so it matches the cockpit when the user pops back to the home screen.
+
+### TypeScript health
+`npx tsc --noEmit` reports the same 4 pre-existing errors as before this work — none introduced by Phase 1, 2, or 3. The previously-flagged `TaskManager.defineTask` TS error is **resolved** as a side-effect of making the BG callback `async` for SQLite writes.
+
+### Files touched (all phases)
+| File | Phase | Notes |
+|---|---|---|
+| `lib/rideRecorder.ts` | 1, 2, 3 | Core recorder |
+| `lib/recordingStore.ts` | 2 | New SQLite layer |
+| `app/recording.tsx` | 3 | Cockpit shows moving time + passes isClimb |
+| `app/ride-summary.tsx` | 3 | Saves moving seconds as durationSeconds |
+| `app/resume-ride.tsx` | 2 | New recovery screen |
+| `app/index.tsx` | 2 | Cold-start recovery routing |
+| `app/_layout.tsx` | 2 | Registered resume-ride route |
+| `constants/i18n.ts` | 2 | 3 new keys × 2 languages |
+| `components/record/FloatingRideButton.tsx` | 3 | FAB badge → moving time |
+| `docs/release-notes-recording-fix.md` | meta | NEW — store + reviewer notes |
+| `docs/AI-HANDOFF-recording-fix.md` | meta | NEW — VS Code chat context |
+| `tasks/todo.md` | meta | This audit |
+
+### What was NOT changed
+- `app.json` / Android manifest — already correct since previous build (FOREGROUND_SERVICE_LOCATION etc.)
+- MapLibre / map rendering — confirmed not the problem
+- DEM elevation correction (`lib/elevationCorrection.ts`) — already working correctly
+- Filter constants (`MAX_ACCURACY_M`, `MAX_SPEED_MS`, `MIN_JITTER_M`) — left untouched; should now behave correctly with `Accuracy.High`. Revisit only if a real-ride test shows points still being over-rejected.
+
+### Open follow-ups (not blocking ship)
+- Live elapsed-time in the foreground-service notification body (would require restarting the location service to update, or a parallel `expo-notifications` channel — punted).
+- Bilingual notification body (currently hardcoded Slovenian; recorder is a singleton outside React so we'd need to read `AsyncStorage` for the language pref).
+- Pre-existing TS errors in `app/route/[id].tsx`, `components/climbs/ClimbListItem.tsx`, `app/time/[duration].tsx`, `components/EditScreenInfo.tsx` — separate cleanup pass.
+- Pushing all of this to GitHub: **deferred to Luka** (sandbox shell has no GitHub credentials).

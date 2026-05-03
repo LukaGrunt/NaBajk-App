@@ -53,10 +53,16 @@ export default function RideSummaryScreen() {
   const params       = useLocalSearchParams<{ isClimb?: string }>();
   const isClimb      = params.isClimb === 'true';
 
-  // Capture recorded data once on mount — immune to later reset()
+  // Capture recorded data once on mount — immune to later reset().
+  // durSec uses movingSeconds (auto-paused time spent actually riding); the
+  // wallclock elapsed time would include long stops which makes avg-speed
+  // misleading.
   const [points]  = useState(() => [...getPoints()]);
   const [distM]   = useState(() => getState().distanceMeters);
-  const [durSec]  = useState(() => getState().elapsedSeconds);
+  const [durSec]  = useState(() => {
+    const s = getState();
+    return s.movingSeconds > 0 ? s.movingSeconds : s.elapsedSeconds;
+  });
 
   const [name,          setName]          = useState('');
   const [region,        setRegion]        = useState('gorenjska');
@@ -72,8 +78,19 @@ export default function RideSummaryScreen() {
   const [correctedPoints,    setCorrectedPoints]    = useState<typeof points | null>(null);
   const [elevationLoading,   setElevationLoading]   = useState(true);
 
+  // mountReady: delay rendering the full screen body by 50ms so Fabric has time
+  // to fully detach the recording screen before this screen's view tree mounts.
+  // Prevents IllegalStateException: The specified child already has a parent.
+  const [mountReady, setMountReady] = useState(false);
   useEffect(() => {
-    correctElevations(points).then(pts => {
+    const timer = setTimeout(() => setMountReady(true), 50);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    // 5-second timeout: if DEM API is slow/unavailable, fall back to raw GPS points
+    const fallback = new Promise<typeof points>(resolve => setTimeout(() => resolve(points), 5000));
+    Promise.race([correctElevations(points), fallback]).then(pts => {
       setCorrectedPoints(pts);
       setElevationLoading(false);
     });
@@ -198,6 +215,18 @@ export default function RideSummaryScreen() {
   }
 
   // ── main UI ───────────────────────────────────────────────────────────────
+
+  // Hold off rendering until Fabric has finished detaching the previous screen
+  if (!mountReady) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator color={Colors.brandGreen} size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>

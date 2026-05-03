@@ -102,6 +102,7 @@ export default function RootLayout() {
                     }}
                   />
                   <Stack.Screen name="recording"         options={{ headerShown: false }} />
+                  <Stack.Screen name="resume-ride"      options={{ headerShown: false }} />
                   <Stack.Screen name="ride-summary"     options={{ headerShown: true, headerBackTitle: '' }} />
                   <Stack.Screen name="saved-rides"      options={{ headerShown: true, headerBackTitle: '' }} />
                   <Stack.Screen name="saved-rides/[id]" options={{ headerShown: true, headerBackTitle: '' }} />

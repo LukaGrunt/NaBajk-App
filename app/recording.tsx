@@ -74,15 +74,20 @@ export default function RecordRideScreen() {
   useEffect(() => {
     if (phase !== 'ready') return;
     if (state.status === 'idle') {
-      start();
+      start({ isClimb });
     }
   }, [phase, state.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Navigate to ride-summary after user stops — decoupled from Alert callback
-  // to avoid Android race condition between setState + router.replace
+  // to avoid Android race condition between setState + router.replace.
+  // 100ms delay lets Fabric finish detaching the recording screen's view tree
+  // before ride-summary starts mounting, preventing IllegalStateException.
   useEffect(() => {
     if (state.status === 'stopped' && state.stoppedReason === 'user') {
-      router.replace(isClimb ? '/ride-summary?isClimb=true' : '/ride-summary');
+      const timer = setTimeout(() => {
+        router.replace(isClimb ? '/ride-summary?isClimb=true' : '/ride-summary');
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [state.status, state.stoppedReason]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -211,8 +216,9 @@ export default function RecordRideScreen() {
 
   const distKm  = state.distanceMeters / 1000;
   const distStr = distKm.toFixed(2);
-  const avgSpeed = state.elapsedSeconds >= 10 && state.distanceMeters > 0
-    ? (distKm / (state.elapsedSeconds / 3600)).toFixed(1)
+  // Avg speed uses moving seconds so a long pause doesn't drag the number down.
+  const avgSpeed = state.movingSeconds >= 10 && state.distanceMeters > 0
+    ? (distKm / (state.movingSeconds / 3600)).toFixed(1)
     : null;
 
   // ── disclaimer modal ──────────────────────────────────────────────────────
@@ -334,14 +340,14 @@ export default function RecordRideScreen() {
 
       </View>
 
-      {/* Zone 2 — Timer */}
+      {/* Zone 2 — Timer (moving time, auto-pauses when stopped > 30s) */}
       <View style={styles.timerZone}>
         {isClimb && (
           <View style={styles.climbBadge}>
             <Text style={styles.climbBadgeText}>{t(language, 'recordClimbBadge')}</Text>
           </View>
         )}
-        <Text style={styles.timerText}>{formatTime(state.elapsedSeconds)}</Text>
+        <Text style={styles.timerText}>{formatTime(state.movingSeconds)}</Text>
         <Text style={styles.timerLabel}>{t(language, 'recordDurationLabel')}</Text>
       </View>
 

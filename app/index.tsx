@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { useAuth } from '@/contexts/AuthContext';
 import { getTermsAccepted } from '@/utils/localSettings';
+import { hasRecoverableRecording } from '@/lib/rideRecorder';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -41,13 +42,23 @@ export default function Index() {
       return;
     }
 
-    getTermsAccepted().then((accepted) => {
+    (async () => {
+      const accepted = await getTermsAccepted();
       if (!accepted) {
         router.replace('/terms-acceptance');
+        return;
+      }
+      // If the OS killed the app mid-ride, SQLite still has the points.
+      // Route to /resume-ride so the user can save or discard before going home.
+      // Cast: typed-routes generator hasn't picked up the new route yet on
+      // first tsc; expo regenerates the union on next dev/build.
+      const recoverable = await hasRecoverableRecording();
+      if (recoverable) {
+        router.replace('/resume-ride' as any);
       } else {
         router.replace('/(tabs)');
       }
-    });
+    })();
   }, [authLoading, minReady, user]);
 
   return (

@@ -341,6 +341,11 @@ export const strings = {
     raceTypeCestna: 'Cestna',
     raceTypeKronometer: 'Kronometer',
     raceTypeVzpon: 'Vzpon',
+
+    // Recover unsaved ride (cold-start after app was killed mid-ride)
+    recoverTitle: 'Najdena nedokončana vožnja',
+    recoverBody: 'Med snemanjem se je aplikacija zaprla. Tvoji podatki so varno shranjeni — lahko jih shraniš ali zavržeš.',
+    recoverSaveBtn: 'Shrani vožnjo',
   },
   en: {
     // Welcome/Onboarding
@@ -681,6 +686,11 @@ export const strings = {
     raceTypeCestna: 'Road',
     raceTypeKronometer: 'Time trial',
     raceTypeVzpon: 'Hill climb',
+
+    // Recover unsaved ride (cold-start after app was killed mid-ride)
+    recoverTitle: 'Unsaved ride found',
+    recoverBody: 'The app closed while you were recording. Your data is safe — you can save the ride or discard it.',
+    recoverSaveBtn: 'Save ride',
   },
 };
 
