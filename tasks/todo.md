@@ -14,7 +14,7 @@ Phase 2 tasks below are **awaiting approval** before any code change.
 - [x] Step 7: Unit tests for the metric calcs (15 tests, jest + ts-jest)
 - [x] Step 8: Fix the 5 `tsc` errors
 - [x] Step 9 (P2 batch): upload retry + status surfacing; GPX file-existence check on export; chat polling + failed-send UI; RSVP error feedback; async-button disable guards; message-cap error logging
-- [ ] MANUAL: verify the live DB has a `gpx_data text` column on `routes` (repo SQL only defines `gpx_file_url`). Run in Supabase SQL editor: `select column_name from information_schema.columns where table_name = 'routes';` — if missing, every recorded-ride upload is failing; add the column or switch to the gpx-files bucket.
+- [x] MANUAL (verified 2026-06-10 in Supabase dashboard): live `routes` table has both `gpx_data` and `created_by` — uploads and the recorded-time display work against production as-is. Repo SQL in `supabase-setup/` is still out of sync with the live schema; refresh it when convenient.
 
 ## Review
 All metric math now lives in `lib/rideMetrics.ts`; `finalizeRide()` is the single source of truth.
