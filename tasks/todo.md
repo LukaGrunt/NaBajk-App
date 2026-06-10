@@ -1,3 +1,25 @@
+# Ride Metrics & Functional Audit — Phase 1 (report) + Phase 2 (fix plan)
+
+Full triaged report: `tasks/audit-2026-06-10.md`. Phase 1 (investigation) is done;
+Phase 2 tasks below are **awaiting approval** before any code change.
+
+## Tasks
+- [x] Phase 1: trace every metric end-to-end, audit feature flows, run `npx tsc --noEmit`, write triaged report
+- [ ] Step 1: NEW `lib/rideMetrics.ts` — `finalizeRide()`: one pass computing distance, elapsed, moving (gap-clamped, speed-aware), avg speed, elevation gain (hysteresis), `elevationCorrected` flag, canonical processed track
+- [ ] Step 2: Fix `calcElevationGainFromPoints` — replace per-step `MIN_DELTA=1` with hysteresis between local extrema; threshold 2 m (DEM) / 5 m (raw)
+- [ ] Step 3: `ride-summary.tsx` — drop the 5 s `Promise.race`; await DEM correction with honest timeout; save + upload + GPX all use the ONE `RideMetrics` object (no recompute in `uploadRecordedRide`)
+- [ ] Step 4: `rideStorage.ts` — add `elevationGainM`, `elevationCorrected`, `elapsedSeconds`, `avgSpeedKmh` to SavedRide; show elevation on saved-ride detail
+- [ ] Step 5: Recorded routes show recorded `duration_minutes` on cards/detail; `calculateRideMinutes` only when no recorded time; `ShareCard` renders the real `durationSeconds` prop
+- [ ] Step 6: `rideRecorder.ts` — speed-aware accept() filter (stationary-drift rejection); unify elapsed definition for recovered vs normal stop; cockpit timer advances on tick
+- [ ] Step 7: Unit tests for the metric calcs against a known GPX fixture (gain, moving time, distance)
+- [ ] Step 8: Fix the 5 `tsc` errors
+- [ ] Step 9 (P2, separate batch): verify live `gpx_data` column; upload retry + status surfacing; GPX file-existence check on export; chat realtime/poll + failed-send UI; RSVP error feedback; async-button disable guards
+
+## Review
+_(pending — to be filled when Phase 2 work is approved and completed)_
+
+---
+
 # Chat — Floating Button + Full-Screen Modal
 
 ## Tasks
