@@ -40,6 +40,9 @@ function RideRow({ ride, onPress }: { ride: SavedRide; onPress: () => void }) {
           {formatDate(ride.createdAt, 'sl')} · {formatDist(ride.distanceMeters)} · {formatDur(ride.durationSeconds)}
         </Text>
       </View>
+      {!ride.uploaded && (
+        <FontAwesome name="cloud-upload" size={14} color={Colors.textMuted} style={styles.pendingIcon} />
+      )}
       <FontAwesome name="chevron-right" size={18} color={Colors.textMuted} />
     </TouchableOpacity>
   );
@@ -100,6 +103,7 @@ const styles = StyleSheet.create({
   rowInfo: { flex: 1 },
   rowName: { color: Colors.textPrimary, fontSize: 16, fontWeight: '600' },
   rowMeta: { color: Colors.textMuted,   fontSize: 13, marginTop: 2 },
+  pendingIcon: { marginRight: 10 },
 
   separator: { height: 1, backgroundColor: Colors.border, marginHorizontal: 16 },
 });

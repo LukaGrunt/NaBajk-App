@@ -42,6 +42,7 @@ export default function RouteDetailScreen() {
   const [route, setRoute] = useState<Route | null>(null);
   const [loading, setLoading] = useState(true);
   const [shareVisible, setShareVisible] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [computedElevationProfile, setComputedElevationProfile] = useState<number[] | null>(null);
 
   useEffect(() => {
@@ -123,10 +124,12 @@ export default function RouteDetailScreen() {
   };
 
   const handleExportGpx = async () => {
+    if (exporting) return;
     if (routeCoordinates.length < 2) {
       Alert.alert('Export', 'No route data available to export.');
       return;
     }
+    setExporting(true);
     try {
       // Use stored GPX if available, otherwise build from coordinates
       const gpxContent = route?.gpxData ?? buildGpxExport(routeCoordinates, route?.title ?? 'Route');
@@ -144,6 +147,8 @@ export default function RouteDetailScreen() {
     } catch (error) {
       console.error('GPX export failed:', error);
       Alert.alert('Export Failed', 'Could not export GPX file.');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -306,8 +311,10 @@ export default function RouteDetailScreen() {
           )}
 
           {/* Export GPX Button */}
-          <TouchableOpacity style={styles.exportButton} activeOpacity={0.8} onPress={handleExportGpx}>
-            <FontAwesome name="download" size={18} color={Colors.background} />
+          <TouchableOpacity style={styles.exportButton} activeOpacity={0.8} onPress={handleExportGpx} disabled={exporting}>
+            {exporting
+              ? <ActivityIndicator size="small" color={Colors.background} />
+              : <FontAwesome name="download" size={18} color={Colors.background} />}
             <Text style={styles.exportButtonText}>{t(language, 'exportGPX')}</Text>
           </TouchableOpacity>
 

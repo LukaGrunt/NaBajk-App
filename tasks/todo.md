@@ -13,7 +13,8 @@ Phase 2 tasks below are **awaiting approval** before any code change.
 - [x] Step 6: `rideRecorder.ts` — stationary-drift rejection in accept(); cockpit timer advances every second
 - [x] Step 7: Unit tests for the metric calcs (15 tests, jest + ts-jest)
 - [x] Step 8: Fix the 5 `tsc` errors
-- [ ] Step 9 (P2, separate batch): verify live `gpx_data` column; upload retry + status surfacing; GPX file-existence check on export; chat realtime/poll + failed-send UI; RSVP error feedback; async-button disable guards
+- [x] Step 9 (P2 batch): upload retry + status surfacing; GPX file-existence check on export; chat polling + failed-send UI; RSVP error feedback; async-button disable guards; message-cap error logging
+- [ ] MANUAL: verify the live DB has a `gpx_data text` column on `routes` (repo SQL only defines `gpx_file_url`). Run in Supabase SQL editor: `select column_name from information_schema.columns where table_name = 'routes';` — if missing, every recorded-ride upload is failing; add the column or switch to the gpx-files bucket.
 
 ## Review
 All metric math now lives in `lib/rideMetrics.ts`; `finalizeRide()` is the single source of truth.
@@ -29,6 +30,17 @@ All metric math now lives in `lib/rideMetrics.ts`; `finalizeRide()` is the singl
 - **tsc** — 0 errors (was 5; deleted unused Expo template files `EditScreenInfo.tsx`, `ExternalLink.tsx`).
 
 Behaviour notes: recorded `duration_minutes` semantics unchanged (moving time). Curated-route cards still show the rider-level estimate — only routes with `created_by` switch to real time. DEM display-only bug is gone: when correction succeeds the corrected gain is what gets uploaded; when it fails the noise-tolerant threshold is used and the ride is marked `elevationCorrected: false` locally.
+
+### Step 9 (P2 batch)
+- **`app/saved-rides/[id].tsx`** — export resolves the GPX path first (`getInfoAsync`, then same filename under the current `documentDirectory` — handles iOS container-path changes across updates) and alerts instead of silently doing nothing; new upload-status row: "Published to NaBajk routes" when uploaded, otherwise a "Publish" retry button that re-runs `uploadRecordedRide` from the SavedRide (using persisted `elevationGainM`) and calls `markUploaded`. Both buttons disable + spin while busy.
+- **`app/saved-rides.tsx`** — pending-upload cloud icon on rides not yet uploaded.
+- **`RideChatSection.tsx`** — 5 s polling while the chat modal is open (cleaned up on close/unmount) so other riders' messages appear live; failed send shows an alert and keeps the typed text; `handleSend` ignores taps while a send is in flight.
+- **`RSVPModule.tsx`** — RSVP failure now alerts (`rsvpFailed` i18n key added sl/en) instead of failing silently.
+- **`groupRidesRepo.ts`** — message-cap count/delete and expired-message cleanup now check and log their errors; housekeeping failures never block sending.
+- **Button guards** — route detail Export GPX disables + spins while exporting; FloatingRideButton navigation actions go through a `navigateOnce` ref guard (no more double-pushed screens); ride-summary back button disabled while saving; StoryShareSheet capture guards against setState after close.
+- **NOT done here (needs dashboard access):** live-DB check that `routes.gpx_data` exists — see the MANUAL task above. Retry-upload note: if the original background upload succeeded but `markUploaded` failed, retrying can create a duplicate route row; true idempotency needs a client-generated unique key on the row (server-side change).
+
+`npx tsc --noEmit`: 0 errors. `npm test`: 15/15 passing.
 
 ---
 

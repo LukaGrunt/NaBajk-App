@@ -238,13 +238,15 @@ export async function postMessage(
   userName: string,
   message: string
 ): Promise<void> {
-  // Enforce 100-message cap: delete the oldest if at limit
-  const { count } = await supabase
+  // Enforce 100-message cap: delete the oldest if at limit. Housekeeping
+  // failures are logged but never block sending the message itself.
+  const { count, error: countError } = await supabase
     .from('group_ride_messages')
     .select('*', { count: 'exact', head: true })
     .eq('group_ride_id', groupRideId);
+  if (countError) console.warn('Message cap count failed:', countError);
 
-  if (count && count >= 100) {
+  if (!countError && count && count >= 100) {
     const { data: oldest } = await supabase
       .from('group_ride_messages')
       .select('id')
@@ -253,7 +255,9 @@ export async function postMessage(
       .limit(1);
 
     if (oldest?.[0]) {
-      await supabase.from('group_ride_messages').delete().eq('id', oldest[0].id);
+      const { error: delError } = await supabase
+        .from('group_ride_messages').delete().eq('id', oldest[0].id);
+      if (delError) console.warn('Message cap delete failed:', delError);
     }
   }
 
@@ -268,17 +272,23 @@ export async function postMessage(
  * Delete messages for rides that started more than 2 hours ago
  */
 export async function cleanupExpiredMessages(): Promise<void> {
-  const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  try {
+    const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
 
-  const { data: expiredRides } = await supabase
-    .from('group_rides')
-    .select('id')
-    .lt('starts_at', cutoff);
+    const { data: expiredRides } = await supabase
+      .from('group_rides')
+      .select('id')
+      .lt('starts_at', cutoff);
 
-  if (!expiredRides || expiredRides.length === 0) return;
+    if (!expiredRides || expiredRides.length === 0) return;
 
-  await supabase
-    .from('group_ride_messages')
-    .delete()
-    .in('group_ride_id', expiredRides.map((r) => r.id));
+    const { error } = await supabase
+      .from('group_ride_messages')
+      .delete()
+      .in('group_ride_id', expiredRides.map((r) => r.id));
+    if (error) throw error;
+  } catch (err) {
+    // Fire-and-forget housekeeping — log so failures are at least visible
+    console.warn('Expired message cleanup failed:', err);
+  }
 }

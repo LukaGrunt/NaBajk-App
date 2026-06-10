@@ -248,7 +248,7 @@ export default function RideSummaryScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7} disabled={saving}>
           <FontAwesome name="chevron-left" size={16} color={Colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t(language, 'summaryHeaderTitle')}</Text>
