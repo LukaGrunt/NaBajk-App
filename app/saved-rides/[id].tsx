@@ -86,6 +86,18 @@ export default function RideDetailScreen() {
           <StatBox value={capitalise(ride.region)}         label={language === 'sl' ? 'regija'   : 'region'}   />
         </View>
 
+        {/* second row — only for rides saved with full metrics */}
+        {(ride.elevationGainM != null || ride.avgSpeedKmh != null) && (
+          <View style={[styles.statsGrid, styles.statsGridSecond]}>
+            {ride.elevationGainM != null && (
+              <StatBox value={`${ride.elevationGainM} m`} label={language === 'sl' ? 'vzpon' : 'elevation'} />
+            )}
+            {ride.avgSpeedKmh != null && (
+              <StatBox value={`${ride.avgSpeedKmh.toFixed(1)} km/h`} label={language === 'sl' ? 'povp. hitrost' : 'avg speed'} />
+            )}
+          </View>
+        )}
+
         {/* actions */}
         <View style={styles.actions}>
           <TouchableOpacity style={styles.actionBtn} onPress={() => shareRef.current?.share()}>
@@ -138,6 +150,7 @@ const styles = StyleSheet.create({
 
   /* stats */
   statsGrid: { flexDirection: 'row', width: '100%', gap: 8 },
+  statsGridSecond: { marginTop: 8 },
   statBox: {
     flex:            1,
     backgroundColor: Colors.cardSurface,

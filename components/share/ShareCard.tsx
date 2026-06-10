@@ -118,16 +118,19 @@ const ROUTE_W = 280;
 const ROUTE_H = 200;
 
 export const ShareCard = forwardRef<View, Props>(
-  ({ rideName, distanceKm, points, isClimb, elevationProfile, avgGradient, elevationM }, ref) => {
+  ({ rideName, distanceKm, durationSeconds, points, isClimb, elevationProfile, avgGradient, elevationM }, ref) => {
 
     const isRegularRoute = !(isClimb && elevationProfile && elevationProfile.length >= 2);
     const staticMap = isRegularRoute && points && points.length >= 2
       ? buildStaticMap(points, ROUTE_W, ROUTE_H)
       : null;
 
-    const predictedTime = isRegularRoute
-      ? formatMinutes(calculateRideMinutes(parseFloat(distanceKm), elevationM ?? 0, 'intermediate'))
-      : null;
+    // Real ride time when we have it; the rider-level estimate is only a
+    // fallback for routes without a recorded duration.
+    const timeMinutes = durationSeconds > 0
+      ? Math.round(durationSeconds / 60)
+      : calculateRideMinutes(parseFloat(distanceKm), elevationM ?? 0, 'intermediate');
+    const predictedTime = isRegularRoute ? formatMinutes(timeMinutes) : null;
 
     return (
       <View ref={ref} collapsable={false} style={styles.card}>

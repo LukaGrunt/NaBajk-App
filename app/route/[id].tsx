@@ -22,7 +22,7 @@ import { getRoute } from '@/repositories/routesRepo';
 import { Route } from '@/types/Route';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useRiderLevel } from '@/contexts/RiderLevelContext';
-import { calculateRideMinutes } from '@/utils/rideTimeCalculator';
+import { displayRideMinutes } from '@/utils/rideTimeCalculator';
 import { InteractiveRouteMap } from '@/components/InteractiveRouteMap';
 import { GradientProfile } from '@/components/climbs/GradientProfile';
 import { t } from '@/constants/i18n';
@@ -224,7 +224,7 @@ export default function RouteDetailScreen() {
             <View style={styles.statDividerLine} />
             <View style={styles.statCell}>
               <FontAwesome name="clock-o" size={18} color={Colors.brandGreen} style={styles.statIcon} />
-              <Text style={styles.statValue}>{formatDuration(calculateRideMinutes(route.distanceKm, route.elevationM, riderLevel))}</Text>
+              <Text style={styles.statValue}>{formatDuration(displayRideMinutes(route, riderLevel))}</Text>
               <Text style={styles.statLabel}>{t(language, 'time')}</Text>
             </View>
           </View>
@@ -334,7 +334,7 @@ export default function RouteDetailScreen() {
         onSkip={() => setShareVisible(false)}
         rideName={route.title}
         distanceKm={route.distanceKm.toFixed(2)}
-        durationSeconds={route.durationMinutes * 60}
+        durationSeconds={displayRideMinutes(route, riderLevel) * 60}
         points={routeCoordinates}
         isClimb={route.isClimb}
         elevationProfile={activeElevationProfile}

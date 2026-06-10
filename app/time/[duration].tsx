@@ -15,8 +15,8 @@ import { listRoutes } from '@/repositories/routesRepo';
 import { Route, TimeDuration } from '@/types/Route';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useRiderLevel } from '@/contexts/RiderLevelContext';
-import { calculateRideMinutes } from '@/utils/rideTimeCalculator';
-import { t } from '@/constants/i18n';
+import { displayRideMinutes } from '@/utils/rideTimeCalculator';
+import { t, RiderLevel } from '@/constants/i18n';
 
 // Map durations to i18n translation keys for labels
 function getTimeLabelKey(duration: TimeDuration): keyof typeof import('@/constants/i18n').strings.sl {
@@ -46,8 +46,10 @@ function getTimeDescKey(duration: TimeDuration): keyof typeof import('@/constant
   }
 }
 
-function matchesDuration(route: Route, duration: TimeDuration, riderLevel: string): boolean {
-  const minutes = calculateRideMinutes(route.distanceKm, route.elevationM ?? 0, riderLevel);
+function matchesDuration(route: Route, duration: TimeDuration, riderLevel: RiderLevel): boolean {
+  // Same minutes the cards display, so a route never lands in a bucket that
+  // contradicts the time shown on its own card.
+  const minutes = displayRideMinutes(route, riderLevel);
   switch (duration) {
     case '1h':  return minutes <= 60;
     case '2h':  return minutes > 60  && minutes <= 120;

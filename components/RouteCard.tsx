@@ -8,7 +8,7 @@ import { Route } from '@/types/Route';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { t } from '@/constants/i18n';
 import { useRiderLevel } from '@/contexts/RiderLevelContext';
-import { calculateRideMinutes } from '@/utils/rideTimeCalculator';
+import { displayRideMinutes } from '@/utils/rideTimeCalculator';
 
 interface RouteCardProps {
   route: Route;
@@ -86,7 +86,7 @@ export function RouteCard({ route }: RouteCardProps) {
             <Text style={styles.statDivider}>·</Text>
             <Text style={styles.stat}>{route.elevationM} m</Text>
             <Text style={styles.statDivider}>·</Text>
-            <Text style={styles.stat}>{formatDuration(calculateRideMinutes(route.distanceKm, route.elevationM, riderLevel))}</Text>
+            <Text style={styles.stat}>{formatDuration(displayRideMinutes(route, riderLevel))}</Text>
           </View>
         </View>
       </View>

@@ -2,7 +2,6 @@ import * as FileSystem from 'expo-file-system';
 import { supabase } from '@/lib/supabase';
 import { Difficulty, Route, RouteCategory, TimeDuration } from '@/types/Route';
 import { getPlaceholderImage } from '@/constants/placeholderImages';
-import type { RecordedPoint } from '@/lib/rideRecorder';
 
 /**
  * Routes Repository - Supabase Integration
@@ -29,6 +28,7 @@ interface SupabaseRouteRow {
   traffic: string | null;
   road_condition: string | null;
   why_good: string | null;
+  created_by: string | null;
 }
 
 // Helper: Map Supabase snake_case to TypeScript camelCase
@@ -52,7 +52,15 @@ function mapSupabaseToRoute(data: SupabaseRouteRow): Route {
     traffic: data.traffic ?? undefined,
     roadCondition: data.road_condition ?? undefined,
     whyGood: data.why_good ?? undefined,
+    createdBy: data.created_by ?? undefined,
   };
+}
+
+/** Minimal point shape the profile computation needs. */
+interface TrackPoint {
+  lat:  number;
+  lng:  number;
+  alt?: number;
 }
 
 /**
@@ -61,7 +69,7 @@ function mapSupabaseToRoute(data: SupabaseRouteRow): Route {
  * Returns numBars+1 values where numBars = max(10, round(distanceKm)).
  */
 export function computeElevationProfileFromPoints(
-  points: RecordedPoint[],
+  points: TrackPoint[],
   distanceKm: number
 ): number[] {
   const pts = points.filter(p => p.alt != null);
@@ -273,31 +281,6 @@ const REGION_DISPLAY: Record<string, string> = {
   osrednjaSlovenija: 'Osrednja Slovenija',
 };
 
-export function calcElevationGainFromPoints(points: RecordedPoint[]): number {
-  const raw = points.map(p => p.alt).filter((a): a is number => a != null);
-  if (raw.length < 2) return 0;
-
-  // 7-point moving average to smooth GPS altitude noise
-  const smoothed = raw.map((_, i) => {
-    const lo = Math.max(0, i - 3);
-    const hi = Math.min(raw.length - 1, i + 3);
-    const slice = raw.slice(lo, hi + 1);
-    return slice.reduce((s, v) => s + v, 0) / slice.length;
-  });
-
-  const MIN_DELTA = 1; // DEM data is noise-free; 1 m threshold is sufficient
-  let gain = 0;
-  for (let i = 1; i < smoothed.length; i++) {
-    const delta = smoothed[i] - smoothed[i - 1];
-    if (delta >= MIN_DELTA) gain += delta;
-  }
-  return Math.round(gain);
-}
-
-function calcElevationGain(points: RecordedPoint[]): number {
-  return calcElevationGainFromPoints(points);
-}
-
 function deriveDifficulty(distanceKm: number): Difficulty {
   if (distanceKm < 20) return 'Lahka';
   if (distanceKm <= 50) return 'Srednja';
@@ -307,13 +290,16 @@ function deriveDifficulty(distanceKm: number): Difficulty {
 /**
  * Upload a recorded ride to the public routes table so it appears
  * in the app for all users, filtered by region.
+ *
+ * All metrics arrive precomputed (finalizeRide) — nothing is recalculated
+ * here, so the uploaded numbers always match what the summary displayed.
  */
 export async function uploadRecordedRide(params: {
-  points:          RecordedPoint[];
   rideName:        string;
   regionKey:       string;   // e.g. 'gorenjska'
   distanceMeters:  number;
   durationSeconds: number;
+  elevationM:      number;
   polyline:        string;
   gpxPath:         string;   // local file:// URI
   traffic?:        string;
@@ -324,7 +310,7 @@ export async function uploadRecordedRide(params: {
 
   const distanceKm    = params.distanceMeters / 1000;
   const durationMins  = Math.round(params.durationSeconds / 60);
-  const elevationM    = calcElevationGain(params.points);
+  const elevationM    = Math.round(params.elevationM);
   const difficulty    = deriveDifficulty(distanceKm);
   const region        = REGION_DISPLAY[params.regionKey] ?? params.regionKey;
 

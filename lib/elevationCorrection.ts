@@ -14,6 +14,7 @@ import type { RecordedPoint } from './rideRecorder';
 // ── constants ─────────────────────────────────────────────────────────────────
 
 const SAMPLE_INTERVAL_M = 50;   // downsample to ~1 point per 50 m
+const MAX_SAMPLES       = 500;  // cap batches at 5 so long rides finish in seconds
 const BATCH_SIZE        = 100;  // API max per request
 const API_TIMEOUT_MS    = 15000;
 
@@ -31,9 +32,20 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number): numb
 
 // ── downsample ────────────────────────────────────────────────────────────────
 
-/** Keep one point per SAMPLE_INTERVAL_M metres (plus always first & last). */
+/**
+ * Keep one point per sample interval (plus always first & last). The interval
+ * widens on long rides so the sample count stays ≤ MAX_SAMPLES — with the
+ * API's 1 req/s rate limit, unbounded samples meant a 100 km ride needed
+ * 20+ sequential batches and the correction never finished in practice.
+ */
 function downsample(points: RecordedPoint[]): { point: RecordedPoint; originalIndex: number }[] {
   if (points.length === 0) return [];
+
+  let totalDist = 0;
+  for (let i = 1; i < points.length; i++) {
+    totalDist += haversine(points[i - 1].lat, points[i - 1].lng, points[i].lat, points[i].lng);
+  }
+  const interval = Math.max(SAMPLE_INTERVAL_M, totalDist / MAX_SAMPLES);
 
   const result: { point: RecordedPoint; originalIndex: number }[] = [
     { point: points[0], originalIndex: 0 },
@@ -43,7 +55,7 @@ function downsample(points: RecordedPoint[]): { point: RecordedPoint; originalIn
   for (let i = 1; i < points.length; i++) {
     const prev = points[i - 1];
     accumulated += haversine(prev.lat, prev.lng, points[i].lat, points[i].lng);
-    if (accumulated >= SAMPLE_INTERVAL_M) {
+    if (accumulated >= interval) {
       result.push({ point: points[i], originalIndex: i });
       accumulated = 0;
     }
@@ -84,12 +96,18 @@ async function fetchDemElevations(samples: RecordedPoint[]): Promise<number[]> {
 
 // ── public API ────────────────────────────────────────────────────────────────
 
+export interface ElevationCorrectionResult {
+  points:    RecordedPoint[];
+  corrected: boolean;   // false → `points` are the original GPS altitudes
+}
+
 /**
  * Replace `alt` on each RecordedPoint with DEM elevation from SRTM 30 m.
- * On any network or API error, returns the original points unchanged.
+ * On any network or API error, returns the original points unchanged with
+ * `corrected: false` so callers can pick noise-tolerant algorithms.
  */
-export async function correctElevations(points: RecordedPoint[]): Promise<RecordedPoint[]> {
-  if (points.length < 2) return points;
+export async function correctElevations(points: RecordedPoint[]): Promise<ElevationCorrectionResult> {
+  if (points.length < 2) return { points, corrected: false };
 
   try {
     // 1. Downsample to reduce API calls
@@ -116,7 +134,7 @@ export async function correctElevations(points: RecordedPoint[]): Promise<Record
       if (!isNaN(elev)) demMap.set(s.originalIndex, elev);
     });
 
-    if (demMap.size === 0) return points; // all NaN → fallback
+    if (demMap.size === 0) return { points, corrected: false }; // all NaN → fallback
 
     // 5. Interpolate DEM elevations for every original point
     //    Find the two nearest sampled indices and lerp between them
@@ -145,9 +163,9 @@ export async function correctElevations(points: RecordedPoint[]): Promise<Record
       return { ...p, alt };
     });
 
-    return corrected;
+    return { points: corrected, corrected: true };
   } catch (err) {
     console.warn('[elevationCorrection] DEM fetch failed, using GPS altitude:', err);
-    return points; // graceful fallback
+    return { points, corrected: false }; // graceful fallback
   }
 }

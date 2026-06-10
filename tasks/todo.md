@@ -5,18 +5,30 @@ Phase 2 tasks below are **awaiting approval** before any code change.
 
 ## Tasks
 - [x] Phase 1: trace every metric end-to-end, audit feature flows, run `npx tsc --noEmit`, write triaged report
-- [ ] Step 1: NEW `lib/rideMetrics.ts` — `finalizeRide()`: one pass computing distance, elapsed, moving (gap-clamped, speed-aware), avg speed, elevation gain (hysteresis), `elevationCorrected` flag, canonical processed track
-- [ ] Step 2: Fix `calcElevationGainFromPoints` — replace per-step `MIN_DELTA=1` with hysteresis between local extrema; threshold 2 m (DEM) / 5 m (raw)
-- [ ] Step 3: `ride-summary.tsx` — drop the 5 s `Promise.race`; await DEM correction with honest timeout; save + upload + GPX all use the ONE `RideMetrics` object (no recompute in `uploadRecordedRide`)
-- [ ] Step 4: `rideStorage.ts` — add `elevationGainM`, `elevationCorrected`, `elapsedSeconds`, `avgSpeedKmh` to SavedRide; show elevation on saved-ride detail
-- [ ] Step 5: Recorded routes show recorded `duration_minutes` on cards/detail; `calculateRideMinutes` only when no recorded time; `ShareCard` renders the real `durationSeconds` prop
-- [ ] Step 6: `rideRecorder.ts` — speed-aware accept() filter (stationary-drift rejection); unify elapsed definition for recovered vs normal stop; cockpit timer advances on tick
-- [ ] Step 7: Unit tests for the metric calcs against a known GPX fixture (gain, moving time, distance)
-- [ ] Step 8: Fix the 5 `tsc` errors
+- [x] Step 1: NEW `lib/rideMetrics.ts` — `finalizeRide()`: one pass computing distance, elapsed, moving (gap-clamped, speed-aware), avg speed, elevation gain (hysteresis), `elevationCorrected` flag, canonical processed track
+- [x] Step 2: Fix elevation gain — replace per-step `MIN_DELTA=1` with hysteresis between local extrema; threshold 2 m (DEM) / 5 m (raw)
+- [x] Step 3: `ride-summary.tsx` — drop the 5 s `Promise.race`; await DEM correction with honest timeout; save + upload + GPX all use the ONE `RideMetrics` object (no recompute in `uploadRecordedRide`)
+- [x] Step 4: `rideStorage.ts` — add `elevationGainM`, `elevationCorrected`, `elapsedSeconds`, `avgSpeedKmh` to SavedRide; show elevation + avg speed on saved-ride detail
+- [x] Step 5: Recorded routes show recorded `duration_minutes` on cards/detail; estimate only when no recorded time; `ShareCard` renders the real `durationSeconds` prop
+- [x] Step 6: `rideRecorder.ts` — stationary-drift rejection in accept(); cockpit timer advances every second
+- [x] Step 7: Unit tests for the metric calcs (15 tests, jest + ts-jest)
+- [x] Step 8: Fix the 5 `tsc` errors
 - [ ] Step 9 (P2, separate batch): verify live `gpx_data` column; upload retry + status surfacing; GPX file-existence check on export; chat realtime/poll + failed-send UI; RSVP error feedback; async-button disable guards
 
 ## Review
-_(pending — to be filled when Phase 2 work is approved and completed)_
+All metric math now lives in `lib/rideMetrics.ts`; `finalizeRide()` is the single source of truth.
+
+- **NEW `lib/rideMetrics.ts`** — `computeDistanceMeters`, `computeMovingSeconds` (gaps <30 s count; longer gaps count only when implied speed ≥0.8 m/s, so GPS dropouts no longer delete ride time but café stops still auto-pause), `calcElevationGain` (hysteresis between local extrema — steady gentle climbs accumulate fully, noise below threshold contributes nothing), `finalizeRide()` (awaits DEM correction up to 30 s, returns one `RideMetrics` object incl. the corrected track and an `elevationCorrected` flag that selects the 2 m/5 m gain threshold).
+- **`lib/elevationCorrection.ts`** — returns `{ points, corrected }` so callers know which path ran; downsampling adapts to ride length (≤500 samples / ≤5 API batches) so correction actually finishes on long rides instead of always losing the timeout race.
+- **`app/ride-summary.tsx`** — instant stats from the same pure functions; elevation cell shows a spinner until `finalizeRide` resolves; `handleSave` awaits the *same* promise, so displayed = saved = uploaded = GPX. Added a `savingRef` double-tap guard. GPX is generated from the corrected track.
+- **`repositories/routesRepo.ts`** — `uploadRecordedRide` now takes precomputed `elevationM` (old raw-recompute + per-step gain deleted); `created_by` mapped to `Route.createdBy`; `computeElevationProfileFromPoints` accepts a minimal point type (fixes 2 tsc errors).
+- **`lib/rideRecorder.ts`** — imports the shared distance/moving functions (local copies deleted); accept() rejects stationary drift (implied speed <0.8 m/s within the GPS error circle) so long stops no longer inflate distance; the 1 s tick computes a provisional moving time so the cockpit timer no longer stutters in 4 s jumps.
+- **`lib/rideStorage.ts`** — SavedRide gains optional `elapsedSeconds`, `avgSpeedKmh`, `elevationGainM`, `elevationCorrected` (old rides still parse); `app/saved-rides/[id].tsx` shows the new row.
+- **`utils/rideTimeCalculator.ts`** — new `displayRideMinutes()`: recorded routes (createdBy set, duration >0) show real ride time; estimate only otherwise. Wired into RouteCard, RouteListItem, ClimbListItem, route detail, time-filter screen and all share sheets. `ShareCard` now renders the actual `durationSeconds` instead of always predicting.
+- **Tests** — `__tests__/rideMetrics.test.ts` (15 tests, all passing) incl. regression tests for the two headline bugs: gentle-climb gain no longer ~0, flat-ride noise no longer accumulates. jest 29 + ts-jest devDeps, `npm test`.
+- **tsc** — 0 errors (was 5; deleted unused Expo template files `EditScreenInfo.tsx`, `ExternalLink.tsx`).
+
+Behaviour notes: recorded `duration_minutes` semantics unchanged (moving time). Curated-route cards still show the rider-level estimate — only routes with `created_by` switch to real time. DEM display-only bug is gone: when correction succeeds the corrected gain is what gets uploaded; when it fails the noise-tolerant threshold is used and the ride is marked `elevationCorrected: false` locally.
 
 ---
 

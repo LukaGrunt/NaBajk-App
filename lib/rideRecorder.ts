@@ -15,6 +15,7 @@ import * as Location    from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { useState, useEffect } from 'react';
 import * as recordingStore from './recordingStore';
+import { computeMovingSeconds, computeDistanceMeters, MOVING_GAP_S } from './rideMetrics';
 
 // ── types ────────────────────────────────────────────────
 
@@ -42,10 +43,10 @@ type Listener = (state: RecordingState) => void;
 
 // ── filtering constants ─────────────────────────────────
 
-const MAX_ACCURACY_M = 40;           // reject points less accurate than this
-const MAX_SPEED_MS   = 80 / 3.6;     // 80 km/h → m/s (impossible on a bike)
-const MIN_JITTER_M   = 3;            // ignore sub-3 m moves within 5 s
-const MOVING_GAP_S   = 30;           // gaps between points < this count as moving time
+const MAX_ACCURACY_M      = 40;        // reject points less accurate than this
+const MAX_SPEED_MS        = 80 / 3.6;  // 80 km/h → m/s (impossible on a bike)
+const MIN_JITTER_M        = 3;         // ignore sub-3 m moves within 5 s
+const MIN_MOVING_SPEED_MS = 0.8;       // slower than this = stationary GPS drift
 
 // ── haversine ────────────────────────────────────────────
 
@@ -61,27 +62,8 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number): numb
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-/**
- * Sum of inter-point time gaps that are < MOVING_GAP_S seconds.
- * A 5-minute pause at a coffee shop produces a gap > MOVING_GAP_S, which is
- * excluded — that's the auto-pause behaviour that makes avg-speed sane.
- */
-function computeMovingSeconds(points: RecordedPoint[]): number {
-  let moving = 0;
-  for (let i = 1; i < points.length; i++) {
-    const dt = (points[i].timestamp - points[i - 1].timestamp) / 1000;
-    if (dt > 0 && dt < MOVING_GAP_S) moving += dt;
-  }
-  return Math.round(moving);
-}
-
-function computeDistanceMeters(points: RecordedPoint[]): number {
-  let d = 0;
-  for (let i = 1; i < points.length; i++) {
-    d += haversine(points[i - 1].lat, points[i - 1].lng, points[i].lat, points[i].lng);
-  }
-  return d;
-}
+// Moving time + distance live in rideMetrics so the recorder, the summary and
+// finalizeRide() all use the exact same math.
 
 // ── singleton state ──────────────────────────────────────
 
@@ -111,6 +93,11 @@ function accept(point: RecordedPoint): boolean {
     const dtSec = (point.timestamp - last.timestamp) / 1000;
     if (dtSec > 0 && dist / dtSec > MAX_SPEED_MS) return false; // impossible speed
     if (dist < MIN_JITTER_M && dtSec < 5)          return false; // jitter (auto-pause for distance)
+    // Stationary drift: a slow "move" still inside the GPS error circle is
+    // noise while stopped, not riding — without this, a long red light or
+    // café stop inflates distance as a random walk.
+    if (dtSec > 0 && dist / dtSec < MIN_MOVING_SPEED_MS &&
+        dist < Math.max(5, point.accuracy / 2)) return false;
   }
   return true;
 }
@@ -181,11 +168,23 @@ export async function startRecording(opts?: { isClimb?: boolean }): Promise<void
   // memory-only mode if SQLite open fails).
   recordingStore.startActiveRecording({ startedAt: startTimestamp, isClimb: isClimbActive }).catch(() => {});
 
-  // 1-second tick for elapsed time. movingSeconds is recomputed from points
-  // when new points arrive, so the tick only needs to update wallclock.
+  // 1-second tick for elapsed time + a provisional moving time, so the
+  // cockpit timer advances every second instead of jumping when GPS points
+  // arrive (~4 s apart). The provisional extra matches what the gap will
+  // contribute once the next point lands.
   tickTimer = setInterval(() => {
     if (uiState.status !== 'recording') return;
-    uiState = { ...uiState, elapsedSeconds: Math.floor((Date.now() - startTimestamp) / 1000) };
+    let moving = computeMovingSeconds(rawPoints);
+    const last = rawPoints[rawPoints.length - 1];
+    if (last) {
+      const dt = (Date.now() - last.timestamp) / 1000;
+      if (dt > 0 && dt < MOVING_GAP_S) moving += Math.floor(dt);
+    }
+    uiState = {
+      ...uiState,
+      elapsedSeconds: Math.floor((Date.now() - startTimestamp) / 1000),
+      movingSeconds:  moving,
+    };
     notify();
   }, 1000);
 

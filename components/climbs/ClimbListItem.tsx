@@ -15,7 +15,7 @@ import { GradientProfile } from './GradientProfile';
 import { StoryShareSheet } from '@/components/share/StoryShareSheet';
 import { parseGpxWithElevation } from '@/utils/gpx';
 import { computeElevationProfileFromPoints } from '@/repositories/routesRepo';
-import { calculateRideMinutes } from '@/utils/rideTimeCalculator';
+import { displayRideMinutes } from '@/utils/rideTimeCalculator';
 import { useRiderLevel } from '@/contexts/RiderLevelContext';
 
 const VISUAL_W = 148;
@@ -99,7 +99,7 @@ export function ClimbListItem({ route }: Props) {
   }, [route.id]);
 
   const activeProfile = route.elevationProfile ?? computedProfile ?? undefined;
-  const rideMinutes = calculateRideMinutes(route.distanceKm, route.elevationM, riderLevel);
+  const rideMinutes = displayRideMinutes(route, riderLevel);
 
   return (
     <>
@@ -161,7 +161,7 @@ export function ClimbListItem({ route }: Props) {
         onSkip={() => setShareVisible(false)}
         rideName={route.title}
         distanceKm={route.distanceKm.toFixed(2)}
-        durationSeconds={route.durationMinutes * 60}
+        durationSeconds={rideMinutes * 60}
         isClimb
         elevationProfile={activeProfile}
         avgGradient={route.avgGradient ?? undefined}

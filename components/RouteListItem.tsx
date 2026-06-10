@@ -10,7 +10,7 @@ import { Route } from '@/types/Route';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { t } from '@/constants/i18n';
 import { useRiderLevel } from '@/contexts/RiderLevelContext';
-import { calculateRideMinutes } from '@/utils/rideTimeCalculator';
+import { displayRideMinutes } from '@/utils/rideTimeCalculator';
 import { decodePolyline } from '@/utils/polyline';
 import { StoryShareSheet } from '@/components/share/StoryShareSheet';
 
@@ -108,7 +108,7 @@ export function RouteListItem({ route }: RouteListItemProps) {
             <Text style={styles.statDivider}>·</Text>
             <Text style={styles.stat}>{route.elevationM} m</Text>
             <Text style={styles.statDivider}>·</Text>
-            <Text style={styles.stat}>{formatDuration(calculateRideMinutes(route.distanceKm, route.elevationM, riderLevel))}</Text>
+            <Text style={styles.stat}>{formatDuration(displayRideMinutes(route, riderLevel))}</Text>
           </View>
           <View style={styles.badgeRow}>
             <View
@@ -138,7 +138,7 @@ export function RouteListItem({ route }: RouteListItemProps) {
         onSkip={() => setShareVisible(false)}
         rideName={route.title}
         distanceKm={route.distanceKm.toFixed(2)}
-        durationSeconds={route.durationMinutes * 60}
+        durationSeconds={displayRideMinutes(route, riderLevel) * 60}
         points={sharePoints}
         elevationM={route.elevationM}
       />
