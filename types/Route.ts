@@ -27,4 +27,5 @@ export interface Route {
   traffic?: string;
   roadCondition?: string;
   whyGood?: string;
+  createdBy?: string; // set for in-app recorded rides; durationMinutes is then real ride time
 }

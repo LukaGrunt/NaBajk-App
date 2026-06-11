@@ -39,6 +39,16 @@ export function FloatingRideButton() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [climbConfirmVisible, setClimbConfirmVisible] = useState(false);
   const closeMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navigatingRef = useRef(false);
+
+  // Menu actions navigate after the 220 ms close animation; without a guard a
+  // rapid double tap queues two pushes and stacks duplicate screens.
+  const navigateOnce = (nav: () => void) => {
+    if (navigatingRef.current) return;
+    navigatingRef.current = true;
+    nav();
+    setTimeout(() => { navigatingRef.current = false; }, 800);
+  };
 
   // Derive recording state from singleton
   const isRecording = state.status === 'recording';
@@ -147,7 +157,7 @@ export function FloatingRideButton() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     if (isRecording) {
-      router.push('/recording');
+      navigateOnce(() => router.push('/recording'));
       return;
     }
 
@@ -169,14 +179,14 @@ export function FloatingRideButton() {
   const handleRecord = () => {
     if (state.status === 'stopped') {
       // Unsaved ride exists — go to summary, don't start a new recording
-      closeMenu(() => router.replace('/ride-summary'));
+      closeMenu(() => navigateOnce(() => router.replace('/ride-summary')));
       return;
     }
-    closeMenu(() => router.push('/recording'));
+    closeMenu(() => navigateOnce(() => router.push('/recording')));
   };
 
   const handleUploadGpx = () => {
-    closeMenu(() => router.push('/upload-route'));
+    closeMenu(() => navigateOnce(() => router.push('/upload-route')));
   };
 
   const handleClimbPress = () => {
@@ -185,7 +195,7 @@ export function FloatingRideButton() {
 
   const handleClimbConfirm = () => {
     setClimbConfirmVisible(false);
-    router.push('/recording?isClimb=true');
+    navigateOnce(() => router.push('/recording?isClimb=true'));
   };
 
   // Animated styles

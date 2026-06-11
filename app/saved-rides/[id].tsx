@@ -1,16 +1,37 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import { SafeAreaView }            from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import * as Sharing                from 'expo-sharing';
+import * as FileSystem             from 'expo-file-system/legacy';
 import FontAwesome                 from '@expo/vector-icons/FontAwesome';
 import Colors                      from '@/constants/Colors';
 import { useLanguage }             from '@/contexts/LanguageContext';
 import { t }                       from '@/constants/i18n';
-import { getRide, SavedRide }      from '@/lib/rideStorage';
+import { getRide, markUploaded, SavedRide } from '@/lib/rideStorage';
+import { uploadRecordedRide }      from '@/repositories/routesRepo';
 import { ShareOverlay, ShareOverlayHandle } from '@/components/record/ShareOverlay';
+
+/**
+ * The stored gpxPath is an absolute file URI; on iOS the app container path
+ * changes across updates, so also try the same filename under the current
+ * documentDirectory before giving up.
+ */
+async function resolveGpxPath(gpxPath: string): Promise<string | null> {
+  try {
+    const info = await FileSystem.getInfoAsync(gpxPath);
+    if (info.exists) return gpxPath;
+    const fileName = gpxPath.split('/').pop();
+    if (fileName && FileSystem.documentDirectory) {
+      const alt = `${FileSystem.documentDirectory}${fileName}`;
+      const altInfo = await FileSystem.getInfoAsync(alt);
+      if (altInfo.exists) return alt;
+    }
+  } catch { /* fall through to null */ }
+  return null;
+}
 
 // ── helpers ───────────────────────────────────────────────
 
@@ -36,12 +57,73 @@ export default function RideDetailScreen() {
   const { id }       = useLocalSearchParams<{ id: string }>();
   const shareRef     = useRef<ShareOverlayHandle>(null);
 
-  const [ride, setRide]     = useState<SavedRide | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [ride, setRide]         = useState<SavedRide | null>(null);
+  const [loaded, setLoaded]     = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (id) getRide(id).then(r => { setRide(r); setLoaded(true); });
   }, [id]);
+
+  async function handleExportGpx() {
+    if (!ride || exporting) return;
+    setExporting(true);
+    try {
+      const path = await resolveGpxPath(ride.gpxPath);
+      if (!path) {
+        Alert.alert(
+          t(language, 'error'),
+          language === 'sl'
+            ? 'GPX datoteka ni več na voljo na tej napravi.'
+            : 'The GPX file is no longer available on this device.',
+        );
+        return;
+      }
+      await Sharing.shareAsync(path, {
+        mimeType:    'application/gpx+xml',
+        dialogTitle: ride.name,
+      });
+    } catch {
+      Alert.alert(
+        t(language, 'error'),
+        language === 'sl' ? 'Izvoz GPX ni uspel.' : 'GPX export failed.',
+      );
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleRetryUpload() {
+    if (!ride || uploading) return;
+    setUploading(true);
+    try {
+      const result = await uploadRecordedRide({
+        rideName:        ride.name,
+        regionKey:       ride.region,
+        distanceMeters:  ride.distanceMeters,
+        durationSeconds: ride.durationSeconds,
+        elevationM:      ride.elevationGainM ?? 0,
+        polyline:        ride.polylineEncoded,
+        gpxPath:         ride.gpxPath,
+        traffic:         ride.traffic,
+        roadCondition:   ride.roadCondition,
+        whyGood:         ride.whyGood,
+      });
+      if (result.error) throw new Error(result.error);
+      await markUploaded(ride.id);
+      setRide({ ...ride, uploaded: true });
+    } catch {
+      Alert.alert(
+        t(language, 'error'),
+        language === 'sl'
+          ? 'Nalaganje ni uspelo. Preveri povezavo in poskusi znova.'
+          : 'Upload failed. Check your connection and try again.',
+      );
+    } finally {
+      setUploading(false);
+    }
+  }
 
   /* ── loading / missing ──────────────────────────── */
   if (!loaded) {
@@ -86,6 +168,18 @@ export default function RideDetailScreen() {
           <StatBox value={capitalise(ride.region)}         label={language === 'sl' ? 'regija'   : 'region'}   />
         </View>
 
+        {/* second row — only for rides saved with full metrics */}
+        {(ride.elevationGainM != null || ride.avgSpeedKmh != null) && (
+          <View style={[styles.statsGrid, styles.statsGridSecond]}>
+            {ride.elevationGainM != null && (
+              <StatBox value={`${ride.elevationGainM} m`} label={language === 'sl' ? 'vzpon' : 'elevation'} />
+            )}
+            {ride.avgSpeedKmh != null && (
+              <StatBox value={`${ride.avgSpeedKmh.toFixed(1)} km/h`} label={language === 'sl' ? 'povp. hitrost' : 'avg speed'} />
+            )}
+          </View>
+        )}
+
         {/* actions */}
         <View style={styles.actions}>
           <TouchableOpacity style={styles.actionBtn} onPress={() => shareRef.current?.share()}>
@@ -93,20 +187,31 @@ export default function RideDetailScreen() {
             <Text style={styles.actionBtnText}>{t(language, 'shareRide')}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={async () => {
-              try {
-                await Sharing.shareAsync(ride.gpxPath, {
-                  mimeType:    'application/gpx+xml',
-                  dialogTitle: ride.name,
-                });
-              } catch { /* ignore */ }
-            }}
-          >
-            <FontAwesome name="download" size={18} color={Colors.brandGreen} />
+          <TouchableOpacity style={styles.actionBtn} onPress={handleExportGpx} disabled={exporting}>
+            {exporting
+              ? <ActivityIndicator size="small" color={Colors.brandGreen} />
+              : <FontAwesome name="download" size={18} color={Colors.brandGreen} />}
             <Text style={styles.actionBtnText}>{t(language, 'exportGPX')}</Text>
           </TouchableOpacity>
+
+          {/* upload status / retry */}
+          {ride.uploaded ? (
+            <View style={styles.uploadStatusRow}>
+              <FontAwesome name="cloud" size={14} color={Colors.brandGreen} />
+              <Text style={styles.uploadStatusText}>
+                {language === 'sl' ? 'Objavljeno med potmi NaBajk' : 'Published to NaBajk routes'}
+              </Text>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.actionBtn} onPress={handleRetryUpload} disabled={uploading}>
+              {uploading
+                ? <ActivityIndicator size="small" color={Colors.brandGreen} />
+                : <FontAwesome name="cloud-upload" size={18} color={Colors.brandGreen} />}
+              <Text style={styles.actionBtnText}>
+                {language === 'sl' ? 'Objavi med poti NaBajk' : 'Publish to NaBajk routes'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -138,6 +243,7 @@ const styles = StyleSheet.create({
 
   /* stats */
   statsGrid: { flexDirection: 'row', width: '100%', gap: 8 },
+  statsGridSecond: { marginTop: 8 },
   statBox: {
     flex:            1,
     backgroundColor: Colors.cardSurface,
@@ -159,4 +265,14 @@ const styles = StyleSheet.create({
     padding:         14,
   },
   actionBtnText: { color: Colors.brandGreen, fontSize: 15, fontWeight: '600' },
+
+  /* upload status */
+  uploadStatusRow: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'center',
+    gap:            8,
+    padding:        10,
+  },
+  uploadStatusText: { color: Colors.textMuted, fontSize: 13 },
 });

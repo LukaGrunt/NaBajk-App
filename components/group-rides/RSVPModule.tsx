@@ -8,6 +8,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { GroupRideStatus, GroupRideRSVP } from '@/types/GroupRide';
 import { upsertRSVP, listRSVPs } from '@/repositories/groupRidesRepo';
@@ -82,6 +83,7 @@ export function RSVPModule({ groupRideId }: RSVPModuleProps) {
       await loadRSVPs();
     } catch (error) {
       console.error('Failed to RSVP:', error);
+      Alert.alert(t(language, 'error'), t(language, 'rsvpFailed'));
     } finally {
       setLoading(false);
       setPendingStatus(null);

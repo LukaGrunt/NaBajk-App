@@ -9,7 +9,7 @@ export interface SavedRide {
   createdAt:       string;   // ISO 8601
   name:            string;
   region:          string;
-  durationSeconds: number;
+  durationSeconds: number;   // moving time (matches the summary screen)
   distanceMeters:  number;
   polylineEncoded: string;   // Google polyline
   pointsCount:     number;
@@ -18,6 +18,12 @@ export interface SavedRide {
   traffic?:        string;
   roadCondition?:  string;
   whyGood?:        string;
+  // Metrics from finalizeRide — optional so rides saved before this existed
+  // still parse.
+  elapsedSeconds?:     number;
+  avgSpeedKmh?:        number;
+  elevationGainM?:     number;
+  elevationCorrected?: boolean;
 }
 
 // ── CRUD ─────────────────────────────────────────────────

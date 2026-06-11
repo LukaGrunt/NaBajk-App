@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,11 +17,11 @@ import Colors              from '@/constants/Colors';
 import { useLanguage }     from '@/contexts/LanguageContext';
 import { t }               from '@/constants/i18n';
 import { getPoints, getState, reset } from '@/lib/rideRecorder';
-import { correctElevations }          from '@/lib/elevationCorrection';
+import { finalizeRide, computeDistanceMeters, computeMovingSeconds, RideMetrics } from '@/lib/rideMetrics';
 import { encodePolyline }             from '@/utils/polyline';
 import { generateAndSaveGPX }         from '@/lib/gpxGenerator';
 import { saveRide, markUploaded }     from '@/lib/rideStorage';
-import { uploadRecordedRide, computeElevationProfileFromPoints, calcElevationGainFromPoints } from '@/repositories/routesRepo';
+import { uploadRecordedRide, computeElevationProfileFromPoints } from '@/repositories/routesRepo';
 import { StoryShareSheet }            from '@/components/share/StoryShareSheet';
 import { GradientProfile }            from '@/components/climbs/GradientProfile';
 
@@ -54,15 +54,17 @@ export default function RideSummaryScreen() {
   const isClimb      = params.isClimb === 'true';
 
   // Capture recorded data once on mount — immune to later reset().
+  const [points]     = useState(() => [...getPoints()]);
+  const [elapsedSec] = useState(() => getState().elapsedSeconds);
+
+  // Instant stats while DEM correction runs — same functions finalizeRide
+  // uses, so the displayed numbers can't diverge from the saved ones.
   // durSec uses movingSeconds (auto-paused time spent actually riding); the
   // wallclock elapsed time would include long stops which makes avg-speed
   // misleading.
-  const [points]  = useState(() => [...getPoints()]);
-  const [distM]   = useState(() => getState().distanceMeters);
-  const [durSec]  = useState(() => {
-    const s = getState();
-    return s.movingSeconds > 0 ? s.movingSeconds : s.elapsedSeconds;
-  });
+  const distM     = useMemo(() => computeDistanceMeters(points), [points]);
+  const movingSec = useMemo(() => computeMovingSeconds(points), [points]);
+  const durSec    = movingSec > 0 ? movingSec : elapsedSec;
 
   const [name,          setName]          = useState('');
   const [region,        setRegion]        = useState('gorenjska');
@@ -74,9 +76,12 @@ export default function RideSummaryScreen() {
   const [showShare,     setShowShare]     = useState(false);
   const [savedName,     setSavedName]     = useState('');
 
-  // DEM elevation correction — replaces noisy GPS altitude on mount
-  const [correctedPoints,    setCorrectedPoints]    = useState<typeof points | null>(null);
-  const [elevationLoading,   setElevationLoading]   = useState(true);
+  // finalizeRide: DEM correction + all metrics in one object. handleSave
+  // awaits this same promise, so the saved/uploaded numbers are exactly the
+  // displayed ones.
+  const [metrics, setMetrics] = useState<RideMetrics | null>(null);
+  const metricsPromise        = useRef<Promise<RideMetrics> | null>(null);
+  const savingRef             = useRef(false);
 
   // mountReady: delay rendering the full screen body by 50ms so Fabric has time
   // to fully detach the recording screen before this screen's view tree mounts.
@@ -88,16 +93,15 @@ export default function RideSummaryScreen() {
   }, []);
 
   useEffect(() => {
-    // 5-second timeout: if DEM API is slow/unavailable, fall back to raw GPS points
-    const fallback = new Promise<typeof points>(resolve => setTimeout(() => resolve(points), 5000));
-    Promise.race([correctElevations(points), fallback]).then(pts => {
-      setCorrectedPoints(pts);
-      setElevationLoading(false);
-    });
+    let cancelled = false;
+    metricsPromise.current = finalizeRide(points, elapsedSec);
+    metricsPromise.current.then(m => { if (!cancelled) setMetrics(m); });
+    return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Use DEM-corrected points for elevation stats; fall back to raw GPS until ready
-  const activePoints = correctedPoints ?? points;
+  const elevationLoading = metrics === null;
+  // Canonical track (DEM-corrected when correction succeeded)
+  const activePoints = metrics?.points ?? points;
 
   const polyline = useMemo(() => {
     if (points.length < 2) return '';
@@ -111,10 +115,7 @@ export default function RideSummaryScreen() {
     return computeElevationProfileFromPoints(activePoints, distKmNum);
   }, [isClimb, activePoints, distKmNum]);
 
-  const elevationM = useMemo(() => {
-    if (activePoints.length < 2) return undefined;
-    return calcElevationGainFromPoints(activePoints);
-  }, [activePoints]);
+  const elevationM = metrics?.elevationGainM;
 
   const distKm   = distKmNum.toFixed(2);
   const avgSpeed = durSec >= 10 && distM > 0
@@ -125,10 +126,18 @@ export default function RideSummaryScreen() {
   // ── save ──────────────────────────────────────────────────────────────────
 
   async function handleSave() {
+    if (savingRef.current) return; // double-tap guard
+    savingRef.current = true;
     setSaving(true);
     try {
+      // Same promise the display uses — if DEM correction is still running
+      // the save waits for it, so saved = uploaded = displayed.
+      const m = await (metricsPromise.current ?? finalizeRide(points, elapsedSec));
+      const rideDurSec = m.movingSeconds > 0 ? m.movingSeconds : m.elapsedSeconds;
+
       const rideName = name.trim() || `NaBajk ${new Date().toLocaleDateString('sl-SI')}`;
-      const gpxPath  = await generateAndSaveGPX(points, rideName);
+      // GPX gets the canonical track → corrected elevations when available
+      const gpxPath  = await generateAndSaveGPX(m.points, rideName);
       const id       = Date.now().toString(36) + Math.random().toString(36).slice(2);
 
       await saveRide({
@@ -136,11 +145,15 @@ export default function RideSummaryScreen() {
         createdAt:       new Date().toISOString(),
         name:            rideName,
         region,
-        durationSeconds: durSec,
-        distanceMeters:  distM,
+        durationSeconds: rideDurSec,
+        distanceMeters:  m.distanceMeters,
         polylineEncoded: polyline,
-        pointsCount:     points.length,
+        pointsCount:     m.points.length,
         gpxPath,
+        elapsedSeconds:     m.elapsedSeconds,
+        avgSpeedKmh:        m.avgSpeedKmh ?? undefined,
+        elevationGainM:     m.elevationGainM,
+        elevationCorrected: m.elevationCorrected,
         traffic:       traffic.trim() || undefined,
         roadCondition: roadCondition.trim() || undefined,
         whyGood:       whyGood.trim() || undefined,
@@ -148,11 +161,11 @@ export default function RideSummaryScreen() {
 
       // Upload to public routes (non-blocking — local save already done)
       uploadRecordedRide({
-        points:          points,
         rideName,
         regionKey:       region,
-        distanceMeters:  distM,
-        durationSeconds: durSec,
+        distanceMeters:  m.distanceMeters,
+        durationSeconds: rideDurSec,
+        elevationM:      m.elevationGainM,
         polyline,
         gpxPath,
         traffic:       traffic.trim()       || undefined,
@@ -167,6 +180,7 @@ export default function RideSummaryScreen() {
       setSaved(true);
       setTimeout(() => setShowShare(true), 800);
     } catch {
+      savingRef.current = false;
       setSaving(false);
       Alert.alert(t(language, 'error'), t(language, 'summaryErrorMsg'));
     }
@@ -205,7 +219,7 @@ export default function RideSummaryScreen() {
           rideName={savedName}
           distanceKm={distKm}
           durationSeconds={durSec}
-          points={points}
+          points={activePoints}
           isClimb={isClimb}
           elevationProfile={elevationProfile}
           elevationM={elevationM}
@@ -234,7 +248,7 @@ export default function RideSummaryScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7} disabled={saving}>
           <FontAwesome name="chevron-left" size={16} color={Colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t(language, 'summaryHeaderTitle')}</Text>

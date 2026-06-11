@@ -281,6 +281,7 @@ export const strings = {
 
     // Generic
     error: 'Napaka',
+    rsvpFailed: 'Prijave ni bilo mogoče shraniti. Poskusi znova.',
 
     // Recording cockpit
     recordBack: 'Nazaj',
@@ -626,6 +627,7 @@ export const strings = {
 
     // Generic
     error: 'Error',
+    rsvpFailed: 'Could not save your RSVP. Please try again.',
 
     // Recording cockpit
     recordBack: 'Back',

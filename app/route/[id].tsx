@@ -22,7 +22,7 @@ import { getRoute } from '@/repositories/routesRepo';
 import { Route } from '@/types/Route';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useRiderLevel } from '@/contexts/RiderLevelContext';
-import { calculateRideMinutes } from '@/utils/rideTimeCalculator';
+import { displayRideMinutes } from '@/utils/rideTimeCalculator';
 import { InteractiveRouteMap } from '@/components/InteractiveRouteMap';
 import { GradientProfile } from '@/components/climbs/GradientProfile';
 import { t } from '@/constants/i18n';
@@ -42,6 +42,7 @@ export default function RouteDetailScreen() {
   const [route, setRoute] = useState<Route | null>(null);
   const [loading, setLoading] = useState(true);
   const [shareVisible, setShareVisible] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [computedElevationProfile, setComputedElevationProfile] = useState<number[] | null>(null);
 
   useEffect(() => {
@@ -123,10 +124,12 @@ export default function RouteDetailScreen() {
   };
 
   const handleExportGpx = async () => {
+    if (exporting) return;
     if (routeCoordinates.length < 2) {
       Alert.alert('Export', 'No route data available to export.');
       return;
     }
+    setExporting(true);
     try {
       // Use stored GPX if available, otherwise build from coordinates
       const gpxContent = route?.gpxData ?? buildGpxExport(routeCoordinates, route?.title ?? 'Route');
@@ -144,6 +147,8 @@ export default function RouteDetailScreen() {
     } catch (error) {
       console.error('GPX export failed:', error);
       Alert.alert('Export Failed', 'Could not export GPX file.');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -224,7 +229,7 @@ export default function RouteDetailScreen() {
             <View style={styles.statDividerLine} />
             <View style={styles.statCell}>
               <FontAwesome name="clock-o" size={18} color={Colors.brandGreen} style={styles.statIcon} />
-              <Text style={styles.statValue}>{formatDuration(calculateRideMinutes(route.distanceKm, route.elevationM, riderLevel))}</Text>
+              <Text style={styles.statValue}>{formatDuration(displayRideMinutes(route, riderLevel))}</Text>
               <Text style={styles.statLabel}>{t(language, 'time')}</Text>
             </View>
           </View>
@@ -306,8 +311,10 @@ export default function RouteDetailScreen() {
           )}
 
           {/* Export GPX Button */}
-          <TouchableOpacity style={styles.exportButton} activeOpacity={0.8} onPress={handleExportGpx}>
-            <FontAwesome name="download" size={18} color={Colors.background} />
+          <TouchableOpacity style={styles.exportButton} activeOpacity={0.8} onPress={handleExportGpx} disabled={exporting}>
+            {exporting
+              ? <ActivityIndicator size="small" color={Colors.background} />
+              : <FontAwesome name="download" size={18} color={Colors.background} />}
             <Text style={styles.exportButtonText}>{t(language, 'exportGPX')}</Text>
           </TouchableOpacity>
 
@@ -334,7 +341,7 @@ export default function RouteDetailScreen() {
         onSkip={() => setShareVisible(false)}
         rideName={route.title}
         distanceKm={route.distanceKm.toFixed(2)}
-        durationSeconds={route.durationMinutes * 60}
+        durationSeconds={displayRideMinutes(route, riderLevel) * 60}
         points={routeCoordinates}
         isClimb={route.isClimb}
         elevationProfile={activeElevationProfile}

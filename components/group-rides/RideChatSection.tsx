@@ -13,6 +13,7 @@ import {
   Dimensions,
   SafeAreaView,
   Animated,
+  Alert,
 } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { listMessages, postMessage, RideMessage } from '@/repositories/groupRidesRepo';
@@ -75,6 +76,14 @@ export function RideChatSection({ groupRideId, isExpired }: RideChatSectionProps
     if (open && !isExpired) loadMessages();
   }, [open, groupRideId, isExpired]);
 
+  // Poll while the chat is open so other riders' messages appear without
+  // closing and reopening the modal.
+  useEffect(() => {
+    if (!open || isExpired) return;
+    const id = setInterval(loadMessages, 5000);
+    return () => clearInterval(id);
+  }, [open, groupRideId, isExpired]);
+
   const loadMessages = async () => {
     const data = await listMessages(groupRideId);
     setMessages(data);
@@ -83,7 +92,7 @@ export function RideChatSection({ groupRideId, isExpired }: RideChatSectionProps
 
   const handleSend = () => {
     const trimmed = input.trim();
-    if (!trimmed) return;
+    if (!trimmed || sending) return;
     if (!hasName) {
       setNameInput('');
       setShowNamePrompt(true);
@@ -113,6 +122,8 @@ export function RideChatSection({ groupRideId, isExpired }: RideChatSectionProps
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
     } catch (e) {
       console.error('Failed to send message:', e);
+      // Input text is kept so the user can retry
+      Alert.alert('Napaka', 'Sporočila ni bilo mogoče poslati. Poskusi znova.');
     } finally {
       setSending(false);
     }

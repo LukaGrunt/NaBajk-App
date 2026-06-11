@@ -78,13 +78,14 @@ export function StoryShareSheet({
       contentY.value   = withSpring(0, { damping: 18, stiffness: 200 });
 
       // Capture after a short delay so the offscreen card has rendered
+      let cancelled = false;
       const t = setTimeout(async () => {
         try {
           const uri = await captureRef(cardRef, { format: 'png', quality: 1, result: 'tmpfile' });
-          setCapturedUri(uri);
+          if (!cancelled) setCapturedUri(uri);
         } catch {}
       }, 1200);
-      return () => clearTimeout(t);
+      return () => { cancelled = true; clearTimeout(t); };
     } else {
       backdropOp.value = withTiming(0, { duration: 180 });
       contentY.value   = 80;
