@@ -112,13 +112,51 @@ interface Props {
   elevationProfile?: number[];
   avgGradient?:      number;
   elevationM?:       number;
+  /** Kralj vzponov — gold conquest layout */
+  conquest?:         { title: string; timeSeconds: number };
+}
+
+const GOLD = '#FFC83D';
+
+function formatConquestTime(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 
 const ROUTE_W = 280;
 const ROUTE_H = 200;
 
 export const ShareCard = forwardRef<View, Props>(
-  ({ rideName, distanceKm, durationSeconds, points, isClimb, elevationProfile, avgGradient, elevationM }, ref) => {
+  ({ rideName, distanceKm, durationSeconds, points, isClimb, elevationProfile, avgGradient, elevationM, conquest }, ref) => {
+
+    // ── Kralj vzponov conquest card ──
+    if (conquest) {
+      return (
+        <View ref={ref} collapsable={false} style={[styles.card, styles.goldCard]}>
+          <Image
+            source={require('@/assets/images/logo-navbar.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.goldBanner}>🏆 VZPON OSVOJEN</Text>
+          <Text style={styles.goldClimbName} numberOfLines={2}>{conquest.title}</Text>
+          <Text style={styles.goldTime}>{formatConquestTime(conquest.timeSeconds)}</Text>
+          {elevationM != null && (
+            <Text style={styles.goldMeta}>↑ {elevationM} m · {distanceKm} km</Text>
+          )}
+          <View style={styles.divider} />
+          <Text style={styles.rideName} numberOfLines={1}>Kralj vzponov · NaBajk</Text>
+          <View style={styles.sponsorRow}>
+            <Image source={require('@/assets/images/partner-left.png')} style={styles.sponsorLogo} resizeMode="contain" />
+            <View style={styles.sponsorSep} />
+            <Image source={require('@/assets/images/partner-right.png')} style={styles.sponsorLogo} resizeMode="contain" />
+          </View>
+        </View>
+      );
+    }
 
     const isRegularRoute = !(isClimb && elevationProfile && elevationProfile.length >= 2);
     const staticMap = isRegularRoute && points && points.length >= 2
@@ -268,6 +306,41 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.brandGreen,
     borderRadius:    1,
     marginVertical:  20,
+  },
+  // ── Kralj vzponov conquest card ──
+  goldCard: {
+    borderWidth: 2,
+    borderColor: GOLD,
+  },
+  goldBanner: {
+    fontSize:      16,
+    fontWeight:    '800',
+    color:         GOLD,
+    letterSpacing: 3,
+    marginTop:     12,
+    marginBottom:  20,
+  },
+  goldClimbName: {
+    fontSize:      34,
+    fontWeight:    '800',
+    color:         Colors.textPrimary,
+    textAlign:     'center',
+    letterSpacing: -0.5,
+    lineHeight:    40,
+    marginBottom:  14,
+  },
+  goldTime: {
+    fontSize:      58,
+    fontWeight:    '800',
+    color:         GOLD,
+    fontVariant:   ['tabular-nums'],
+    letterSpacing: -2,
+    lineHeight:    62,
+  },
+  goldMeta: {
+    fontSize:   15,
+    color:      Colors.textSecondary,
+    marginTop:  10,
   },
   // ── Regular route stats ──
   statsRow1: {

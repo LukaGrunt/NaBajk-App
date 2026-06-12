@@ -22,6 +22,8 @@ import { encodePolyline }             from '@/utils/polyline';
 import { generateAndSaveGPX }         from '@/lib/gpxGenerator';
 import { saveRide, markUploaded }     from '@/lib/rideStorage';
 import { uploadRecordedRide, computeElevationProfileFromPoints } from '@/repositories/routesRepo';
+import { detectAndRecordConquests, ConquestResult } from '@/repositories/conquestsRepo';
+import { ConquestCelebration }        from '@/components/record/ConquestCelebration';
 import { StoryShareSheet }            from '@/components/share/StoryShareSheet';
 import { GradientProfile }            from '@/components/climbs/GradientProfile';
 
@@ -75,6 +77,10 @@ export default function RideSummaryScreen() {
   const [saved,         setSaved]         = useState(false);
   const [showShare,     setShowShare]     = useState(false);
   const [savedName,     setSavedName]     = useState('');
+  // Kralj vzponov — conquered climbs detected on this ride
+  const [conquests,       setConquests]       = useState<ConquestResult[]>([]);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [shareConquest,   setShareConquest]   = useState<ConquestResult | null>(null);
 
   // finalizeRide: DEM correction + all metrics in one object. handleSave
   // awaits this same promise, so the saved/uploaded numbers are exactly the
@@ -178,7 +184,20 @@ export default function RideSummaryScreen() {
       reset();
       setSavedName(rideName);
       setSaved(true);
-      setTimeout(() => setShowShare(true), 800);
+
+      // Kralj vzponov: check the track against curated climbs. The celebration
+      // (if any) shows first; the share sheet follows it. Capped so a hung
+      // network can't strand the user without the share sheet.
+      const conquestCheck = detectAndRecordConquests(m.points);
+      const cap = new Promise<ConquestResult[]>(r => setTimeout(() => r([]), 6000));
+      Promise.race([conquestCheck, cap]).then(found => {
+        if (found.length > 0) {
+          setConquests(found);
+          setTimeout(() => setShowCelebration(true), 800);
+        } else {
+          setTimeout(() => setShowShare(true), 400);
+        }
+      });
     } catch {
       savingRef.current = false;
       setSaving(false);
@@ -213,6 +232,19 @@ export default function RideSummaryScreen() {
           <Text style={styles.successTitle}>{t(language, 'summarySavedTitle')}</Text>
           <Text style={styles.successSubtitle}>{t(language, 'summarySavedSubtitle')}</Text>
         </View>
+        <ConquestCelebration
+          visible={showCelebration}
+          conquests={conquests}
+          onShare={(c) => {
+            setShareConquest(c);
+            setShowCelebration(false);
+            setShowShare(true);
+          }}
+          onClose={() => {
+            setShowCelebration(false);
+            setShowShare(true);
+          }}
+        />
         <StoryShareSheet
           visible={showShare}
           onSkip={() => router.replace('/saved-rides')}
@@ -223,6 +255,7 @@ export default function RideSummaryScreen() {
           isClimb={isClimb}
           elevationProfile={elevationProfile}
           elevationM={elevationM}
+          conquest={shareConquest ? { title: shareConquest.title, timeSeconds: shareConquest.timeSeconds } : undefined}
         />
       </SafeAreaView>
     );

@@ -283,6 +283,18 @@ export const strings = {
     error: 'Napaka',
     rsvpFailed: 'Prijave ni bilo mogoče shraniti. Poskusi znova.',
 
+    // Kralj vzponov
+    climbConqueredTitle: 'VZPON OSVOJEN!',
+    climbConqueredMulti: 'OSVOJENI VZPONI!',
+    newPersonalBest: 'Nov osebni rekord!',
+    previousBestLabel: 'Prejšnji rekord',
+    conquestShareBtn: 'Deli na Instagram',
+    conquestCloseBtn: 'Super!',
+    climbKingTitle: 'Kralj vzponov',
+    climbKingProgress: 'Osvojeni vzponi',
+    climbKingEmpty: 'Posnemi vožnjo čez kateri koli vzpon in osvoji ga!',
+    climbKingLocked: 'Še ni osvojen',
+
     // Recording cockpit
     recordBack: 'Nazaj',
     recordConfirmStopTitle: 'Zaključi vožnjo?',
@@ -628,6 +640,18 @@ export const strings = {
     // Generic
     error: 'Error',
     rsvpFailed: 'Could not save your RSVP. Please try again.',
+
+    // Kralj vzponov
+    climbConqueredTitle: 'CLIMB CONQUERED!',
+    climbConqueredMulti: 'CLIMBS CONQUERED!',
+    newPersonalBest: 'New personal best!',
+    previousBestLabel: 'Previous best',
+    conquestShareBtn: 'Share on Instagram',
+    conquestCloseBtn: 'Awesome!',
+    climbKingTitle: 'Climb King',
+    climbKingProgress: 'Conquered climbs',
+    climbKingEmpty: 'Record a ride over any climb to conquer it!',
+    climbKingLocked: 'Not conquered yet',
 
     // Recording cockpit
     recordBack: 'Back',
