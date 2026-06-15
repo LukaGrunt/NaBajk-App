@@ -48,6 +48,8 @@ interface Props {
   elevationProfile?: number[];
   avgGradient?:     number;
   elevationM?:      number;
+  /** Kralj vzponov — renders the gold conquest card instead of the regular one */
+  conquest?:        { title: string; timeSeconds: number };
 }
 
 export function StoryShareSheet({
@@ -61,6 +63,7 @@ export function StoryShareSheet({
   elevationProfile,
   avgGradient,
   elevationM,
+  conquest,
 }: Props) {
   const { language } = useLanguage();
   const cardRef = useRef<View>(null);
@@ -135,6 +138,7 @@ export function StoryShareSheet({
           elevationProfile={elevationProfile}
           avgGradient={avgGradient}
           elevationM={elevationM}
+          conquest={conquest}
         />
       </View>
 

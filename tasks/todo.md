@@ -1,3 +1,39 @@
+# Kralj vzponov (Climb King) + Profil tab
+
+The game: record a ride that goes up a curated climb → the app detects it on save →
+full-screen "VZPON OSVOJEN" celebration with the time → gold Instagram share card →
+collection grid ("Osvojenih 14/60"). Competition is climbs-only (hard to fake);
+routes-shared / group-rides-organized are badges, never rankings (spam incentive).
+Profil tab replaces the Settings tab and houses it all; settings move behind a gear icon.
+
+PHASE 1 COMPLETE — before it works in production the USER must:
+1. ~~Run `supabase-setup/05-climb-king.sql`~~ DONE (climb_conquests verified in dashboard)
+2. After merging this branch: `git pull` then
+   `node scripts/extract-climb-checkpoints.js --dry-run` → review → run without flag.
+   Climbs without gpx_data are skipped (not conquerable until they get a GPX).
+
+## Tasks
+### Phase 1 — the magic moment
+- [x] Step 1: `supabase-setup/05-climb-king.sql` — `routes.climb_checkpoints jsonb` + `climb_conquests` table (user_id, climb_id, best time, unique pair) + RLS — USER runs this in the SQL editor
+- [x] Step 2: `scripts/extract-climb-checkpoints.js` — derive 5 checkpoints (start/25/50/75/summit) from each climb's stored GPX, write to `climb_checkpoints` — USER runs with service key (`--dry-run` to preview)
+- [x] Step 3: `lib/climbDetection.ts` — pure, unit-tested detection: track must pass all checkpoints in order (60 m radius, closest-approach timing); repeat ascents → best time; bbox prefilter for batch
+- [x] Step 4: unit tests `__tests__/climbDetection.test.ts` — 9 tests: full ascent (exact timing), shortcut skipping a midpoint, halfway ride, downhill direction, parallel road 150 m away, double ascent (best time), closest-approach timing, bbox prefilter, empty inputs
+- [x] Step 5: `repositories/conquestsRepo.ts` — fetch climbs w/ checkpoints (cached per session), upsert conquest keeping best time, list user's conquests; `detectAndRecordConquests` never throws (can't break ride save)
+- [x] Step 6: detection hooked into ride-save flow; "VZPON OSVOJEN!" gold celebration modal (`ConquestCelebration`) shows before the share sheet, with PB tag + previous best
+- [x] Step 7: gold conquest ShareCard variant (banner, climb name, big time, sponsors) via `conquest` prop on StoryShareSheet
+- [x] Step 8: `/climb-king` collection screen (progress card X/Y + bar, conquered gold w/ best time, locked greyed; conquered sort first) + gold entry banner on the climbs screen (home-banner progress strip deferred to the Profil tab phase)
+### Phase 2 — Profil tab
+- [ ] Step 9: Profil tab replaces Settings tab (settings behind gear icon); initials avatar + display name; lifetime stats (rides, km, D+ from saved rides)
+- [ ] Step 10: badge engine (pure rules over conquests + contributions: routes shared, group rides organized, km/D+ milestones) + badge wall + shareable badge card
+- [ ] Step 11: sync display name to existing `user_profiles` table (already in schema) so conquests can show names later
+### Phase 3 — later, not now
+- [ ] Vzpon meseca (sponsorable) · per-climb leaderboards (needs anti-cheat sanity checks)
+
+## Review
+_(pending)_
+
+---
+
 # Ride Metrics & Functional Audit — Phase 1 (report) + Phase 2 (fix plan)
 
 Full triaged report: `tasks/audit-2026-06-10.md`. Phase 1 (investigation) is done;
